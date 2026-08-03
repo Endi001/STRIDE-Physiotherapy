@@ -233,7 +233,7 @@ export function BookingModal() {
       data-booking-overlay
       aria-hidden={!open}
       className={[
-        "fixed inset-0 z-[60] transition-opacity",
+        "fixed inset-x-0 top-0 h-[100dvh] z-[60] transition-opacity",
         open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       ].join(" ")}
       style={{ transitionDuration: "220ms", transitionTimingFunction: "var(--ease-strike)" }}

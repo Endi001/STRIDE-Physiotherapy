@@ -22,7 +22,13 @@ This document outlines the proposed changes to enhance the mobile user experienc
   - Update `BOOKING_SELECT_CLASSNAMES` (`placeholder`, `singleValue`, `input`) to use `text-base md:text-sm`.
   - Update the phone input classes in `styles.css` using media queries to be `1rem` (16px) on mobile and `0.875rem` (14px) on screens larger than `768px`.
 
-### C. Additional Accessibility & Mobile UX Enhancements
+### C. Brave Browser Layout & Text Autosizing Fixes
+* **Problem**: Brave Browser (especially on mobile viewports) handles viewport heights differently due to its bottom URL toolbar and autofill overlays. Also, Chromium-based text-inflation rules in Brave can cause calendar day cells to expand and overlap.
+* **Solution**:
+  - Add `text-size-adjust: 100%` and `-webkit-text-size-adjust: 100%` to the base `html` tag in `styles.css` to disable automatic text-inflation / resizing on Chromium engines.
+  - Use dynamic viewport height `h-[100dvh]` on the booking modal overlay instead of `inset-0` to guarantee the modal remains perfectly contained and scrolling works correctly when Brave's toolbars or the browser keyboard pop up.
+
+### D. Additional Accessibility & Mobile UX Enhancements
 * **Tap Target Sizes**:
   - Update the time slot buttons class in Step 1 to have a larger tap area on mobile: `py-3 md:py-2` (making sure buttons are comfortable to touch and meet the WCAG minimum 44px recommended size).
 * **Form Element Screen-Reader Association**:
@@ -56,19 +62,22 @@ This document outlines the proposed changes to enhance the mobile user experienc
      // ...
    };
    ```
-3. **Step Wrapper Heights & Mobile Paddings**:
+3. **Dynamic Viewport Overlay (Brave/Mobile Toolbar Fix)**:
+   - Replace the overlay class `fixed inset-0` with `fixed inset-x-0 top-0 h-[100dvh]` to respect dynamic viewport changes.
+4. **Step Wrapper Heights & Mobile Paddings**:
    - For Step 1 (Calendar & Time):
      - Replace `flex flex-col md:flex-row h-full min-h-[500px]` with `flex flex-col md:flex-row md:h-full min-h-[500px]`.
      - Update Left Panel: `p-8 md:w-[320px] ...` to `p-5 md:p-8 md:w-[320px] ...`.
      - Update Right Panel: `p-8 flex-1 ...` to `px-5 py-6 md:p-8 flex-1 ...`.
    - For Step 2 (Your Details):
      - Replace `p-8 flex flex-col h-full text-left min-h-[500px] bg-white` with `px-5 py-6 md:p-8 flex flex-col md:h-full text-left min-h-[500px] bg-white`.
-4. **Time Slot Tap Target Size**:
+5. **Time Slot Tap Target Size**:
    - Replace `<button className={`py-2 text-sm ...`}` with `<button className={`py-3 md:py-2 text-sm ...`}`.
-5. **Labels Dynamic Association**:
+6. **Labels Dynamic Association**:
    - Add `id` to the `<input>`, `<textarea>`, `<PhoneInput>`, and `<Select>` components, and link them via `<label htmlFor={fieldId}>`.
 
 ### [styles.css](file:///d:/Applications/AntigravityFiles/STRIDE%20Physiotherapy/src/styles.css)
+* Add `text-size-adjust: 100%` and `-webkit-text-size-adjust: 100%` to the `html` block to disable automatic text-inflation.
 * Add media query to ensure the phone input uses 16px font size on mobile view while maintaining 14px on desktop:
   ```css
   .booking-phone-input .PhoneInputInput {
