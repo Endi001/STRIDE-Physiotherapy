@@ -327,7 +327,7 @@ export function BookingModal() {
                     setSelectedTime(null);
                   }}
                   disabled={(date) => date < startOfDay(new Date())}
-                  className="w-full mb-8 rounded-md max-w-[90%] mx-auto [--cell-size:2rem]"
+                  className="w-full mb-12 rounded-md max-w-[90%] mx-auto [--cell-size:2rem]"
                   classNames={{
                     root: "w-full",
                   }}

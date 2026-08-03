@@ -64,11 +64,12 @@ This document outlines the proposed changes to enhance the mobile user experienc
    ```
 3. **Dynamic Viewport Overlay (Brave/Mobile Toolbar Fix)**:
    - Replace the overlay class `fixed inset-0` with `fixed inset-x-0 top-0 h-[100dvh]` to respect dynamic viewport changes.
-4. **Step Wrapper Heights & Mobile Paddings**:
+4. **Step Wrapper Heights, Spacing & Mobile Paddings**:
    - For Step 1 (Calendar & Time):
      - Replace `flex flex-col md:flex-row h-full min-h-[500px]` with `flex flex-col md:flex-row md:h-full min-h-[500px]`.
      - Update Left Panel: `p-8 md:w-[320px] ...` to `p-5 md:p-8 md:w-[320px] ...`.
      - Update Right Panel: `p-8 flex-1 ...` to `px-5 py-6 md:p-8 flex-1 ...`.
+     - Increase the Calendar margin-bottom from `mb-8` to `mb-12` to add more spacing before the available times.
    - For Step 2 (Your Details):
      - Replace `p-8 flex flex-col h-full text-left min-h-[500px] bg-white` with `px-5 py-6 md:p-8 flex flex-col md:h-full text-left min-h-[500px] bg-white`.
 5. **Time Slot Tap Target Size**:
