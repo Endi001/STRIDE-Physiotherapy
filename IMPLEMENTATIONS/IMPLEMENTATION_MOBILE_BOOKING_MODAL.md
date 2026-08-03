@@ -69,7 +69,7 @@ This document outlines the proposed changes to enhance the mobile user experienc
      - Replace `flex flex-col md:flex-row h-full min-h-[500px]` with `flex flex-col md:flex-row md:h-full min-h-[500px]`.
      - Update Left Panel: `p-8 md:w-[320px] ...` to `p-5 md:p-8 md:w-[320px] ...`.
      - Update Right Panel: `p-8 flex-1 ...` to `px-5 py-6 md:p-8 flex-1 ...`.
-     - Increase the Calendar margin-bottom on mobile to `mb-12` while maintaining the original `md:mb-8` on desktop to add more spacing before the available times without affecting the desktop view.
+     - Increase the Calendar margin-bottom on mobile to `mb-20` while maintaining the original `md:mb-8` on desktop to add more spacing before the available times without affecting the desktop view.
    - For Step 2 (Your Details):
      - Replace `p-8 flex flex-col h-full text-left min-h-[500px] bg-white` with `px-5 py-6 md:p-8 flex flex-col md:h-full text-left min-h-[500px] bg-white`.
 5. **Time Slot Tap Target Size**:
