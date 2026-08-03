@@ -57,6 +57,7 @@ export function BookingModal() {
   const [step, setStep] = useState(1);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Event Details State
   const [eventDetails, setEventDetails] = useState<{
@@ -100,6 +101,9 @@ export function BookingModal() {
     const stopTouch = (e: TouchEvent) => e.stopPropagation();
     overlay?.addEventListener('wheel', stopWheel, { passive: false });
     overlay?.addEventListener('touchmove', stopTouch, { passive: false });
+
+    // Reset scroll position of modal content to top
+    contentRef.current?.scrollTo({ top: 0, behavior: "auto" });
 
     // Fetch Event Details
     if (!eventDetails) {
@@ -279,7 +283,7 @@ export function BookingModal() {
           </button>
         </div>
 
-        <div className="relative flex-1 overflow-y-auto overflow-x-hidden bg-[color:var(--bone)] overscroll-contain">
+        <div ref={contentRef} className="relative flex-1 overflow-y-auto overflow-x-hidden bg-[color:var(--bone)] overscroll-contain">
           {step === 1 && (
             <div className="flex flex-col md:flex-row md:h-full min-h-[500px]">
               {/* Left Panel: Intro */}
