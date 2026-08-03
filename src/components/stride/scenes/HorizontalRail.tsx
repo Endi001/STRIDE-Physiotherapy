@@ -79,7 +79,7 @@ export function HorizontalRail() {
           autoPlay
           aria-hidden
         />
-        <div className="absolute inset-0 bg-[color:var(--ink)]/40" />
+        <div className="absolute inset-0 bg-[color:var(--ink)]/40 pointer-events-none" />
         <div className="relative -mt-[60svh] h-[60svh] flex flex-col items-center justify-center gap-3">
           {clinic.conditions.map((c) => (
             <div key={c} className="font-display text-4xl">{c}</div>
