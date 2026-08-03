@@ -253,7 +253,7 @@ export function BookingModal() {
           "left-0 right-0 bottom-0 top-16 md:top-1/2 md:left-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2",
           "w-full md:max-h-[85vh]",
           step === 1 ? "md:w-[840px]" : "md:w-[480px]",
-          "flex flex-col shadow-2xl transition-all duration-300",
+          "flex flex-col shadow-2xl transition-all duration-300 pb-[env(safe-area-inset-bottom)]",
         ].join(" ")}
         style={{
           borderRadius: 8,

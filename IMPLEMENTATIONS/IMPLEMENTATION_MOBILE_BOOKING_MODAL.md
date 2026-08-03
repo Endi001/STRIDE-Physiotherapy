@@ -96,6 +96,59 @@ This document outlines the proposed changes to enhance the mobile user experienc
 
 ---
 
+## Part 2: Brave iOS Viewport Compression Analysis & Solution
+
+### A. Root Cause Analysis
+The layout discrepancy between Safari and Brave on iOS arises from how third-party browsers on iOS integrate their custom toolbars with the underlying **`WKWebView`** layout and rendering pipeline.
+
+1. **How Safari iOS Computes Viewport Heights**:
+   - In Safari, the native browser chrome (top URL bar and bottom tab bar) is tightly integrated with the WebKit layout viewport. 
+   - When these toolbars expand or collapse, Safari dynamically resizes the layout viewport. Therefore, dynamic viewport units like `100dvh` correctly represent the active, visible area between the toolbars.
+
+2. **How Brave iOS (and other custom browsers) Computes Viewport Heights**:
+   - Brave implements a custom native toolbar (containing navigation, share, and tabs buttons) on top of the webview rather than using Safari's system UI.
+   - To provide smooth transitions and full-bleed experiences, the `WKWebView` in Brave spans the **entire screen height**, running *underneath* Brave's bottom toolbar.
+   - Consequently, `100dvh` in Brave evaluates to the full screen height (inclusive of the space covered by Brave's toolbars).
+
+3. **Why the Modal Appears Vertically Compressed**:
+   - The booking overlay container has the class `fixed h-[100dvh] top-0`, stretching it from the top of the screen to the absolute bottom (behind Brave's toolbar).
+   - The inner modal dialog has the classes `absolute left-0 right-0 bottom-0 top-16`, anchoring its bottom edge to `bottom-0` of the overlay.
+   - In Brave, this places the bottom of the modal underneath the browser's toolbar, hiding the bottom section of the modal dialog and crowding the interactive elements (such as the "Next" button).
+   - Since the layout viewport thinks it has the full screen size to display the content, but the visible portion is reduced by the toolbar height, the flex-layout is forced to compress the calendar and time slot buttons, resulting in the squished layout.
+
+---
+
+### B. Smallest Robust Solution
+The cleanest and most standards-compliant way to resolve this is by using **CSS Safe Area Insets** (`env(safe-area-inset-bottom)`). 
+
+When a native toolbar overlays the `WKWebView`, the WebKit engine reports the covered area as a "safe area inset" to prevent web content from being placed under the interactive controls. By applying this inset as padding to the bottom of the modal container, we ensure the modal naturally shifts its contents above the toolbar without resorting to user-agent sniffing or rigid pixel padding.
+
+#### Proposed Change in [BookingModal.tsx](file:///d:/Applications/AntigravityFiles/STRIDE%20Physiotherapy/src/components/stride/BookingModal.tsx):
+Add `pb-[env(safe-area-inset-bottom)]` to the modal dialog container:
+
+```diff
+       <div
+         ref={dialogRef}
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="booking-title"
+         className={[
+           "absolute bg-[color:var(--bone)] text-[color:var(--text-on-light)]",
+           "left-0 right-0 bottom-0 top-16 md:top-1/2 md:left-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2",
+           "w-full md:max-h-[85vh]",
+           step === 1 ? "md:w-[840px]" : "md:w-[480px]",
+-          "flex flex-col shadow-2xl transition-all duration-300",
++          "flex flex-col shadow-2xl transition-all duration-300 pb-[env(safe-area-inset-bottom)]",
+         ].join(" ")}
+```
+
+#### Why this works across all mobile browsers:
+- **In Safari iOS**: When the address bar is at the bottom, Safari handles safe area insets natively. If the home indicator is active, `env(safe-area-inset-bottom)` evaluates to `34px`, adding standard spacing. When the toolbar is collapsed, it evaluates to `0px`, maintaining Safari's existing correct layout.
+- **In Brave iOS**: `env(safe-area-inset-bottom)` evaluates to the height of Brave's custom bottom toolbar + the home indicator (typically `50px` to `80px`). This pads the bottom of the modal container, pushing the "Next" button up and giving the scrollable content above it the correct breathing room.
+- **Visual Integrity**: Because we add padding (`pb-`) instead of changing the modal positioning (`bottom-0`), the modal's background (`var(--bone)`) still extends to the very bottom of the screen under the toolbar, preserving the bottom-sheet visual style while keeping the interactive contents safe and accessible.
+
+---
+
 ## 3. Verification & Testing Plan
 
 ### Manual Verification
@@ -110,3 +163,7 @@ This document outlines the proposed changes to enhance the mobile user experienc
 3. **Desktop Regression Check**:
    - Open the booking modal on desktop.
    - Verify that the layout remains unchanged, font size remains `14px` (`text-sm`), and all elements render correctly as before.
+4. **Brave vs. Safari iOS Cross-Browser Validation**:
+   - Test the modal on an iPhone using Safari and Brave.
+   - Confirm that the "Next" and "Confirm Booking" buttons are fully visible and sit comfortably above the browser toolbars in both browsers, with no visual overlap or layout compression.
+
