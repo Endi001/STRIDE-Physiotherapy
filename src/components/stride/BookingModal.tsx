@@ -233,7 +233,7 @@ export function BookingModal() {
       data-booking-overlay
       aria-hidden={!open}
       className={[
-        "fixed inset-x-0 top-0 h-[100dvh] z-[60] transition-opacity",
+        "fixed inset-x-0 top-0 min-h-[100dvh] overflow-y-auto z-[60] transition-opacity",
         open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       ].join(" ")}
       style={{ transitionDuration: "220ms", transitionTimingFunction: "var(--ease-strike)" }}
@@ -254,6 +254,7 @@ export function BookingModal() {
           "w-full md:max-h-[85vh]",
           step === 1 ? "md:w-[840px]" : "md:w-[480px]",
           "flex flex-col shadow-2xl transition-all duration-300 pb-[env(safe-area-inset-bottom)]",
+          "z-10",
         ].join(" ")}
         style={{
           borderRadius: 8,
