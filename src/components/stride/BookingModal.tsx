@@ -8,25 +8,25 @@ import 'react-phone-number-input/style.css';
 import Select from 'react-select';
 
 const BOOKING_INPUT_CLASS =
-  "w-full border border-[color:var(--hairline-dark-strong)] rounded-md px-4 py-2.5 outline-none focus:border-[color:var(--ember)] focus:ring-1 focus:ring-[color:var(--ember)] transition-all bg-[color:var(--bone)]";
+  "w-full border border-[color:var(--hairline-dark-strong)] rounded-md px-4 py-2.5 outline-none focus:border-[color:var(--ember)] focus:ring-1 focus:ring-[color:var(--ember)] transition-all bg-[color:var(--bone)] text-base md:text-sm";
 
 const BOOKING_COMPOSITE_INPUT_CLASS =
-  "w-full border border-[color:var(--hairline-dark-strong)] rounded-md px-4 py-2.5 outline-none focus-within:border-[color:var(--ember)] focus-within:ring-1 focus-within:ring-[color:var(--ember)] transition-all bg-[color:var(--bone)]";
+  "w-full border border-[color:var(--hairline-dark-strong)] rounded-md px-4 py-2.5 outline-none focus-within:border-[color:var(--ember)] focus-within:ring-1 focus-within:ring-[color:var(--ember)] transition-all bg-[color:var(--bone)] text-base md:text-sm";
 
 const BOOKING_SELECT_CLASSNAMES = {
   control: () => `${BOOKING_COMPOSITE_INPUT_CLASS} shadow-none min-h-[42px]`,
   valueContainer: () => "px-0 py-0 gap-1",
-  placeholder: () => "text-[color:var(--muted-on-light)] text-sm",
-  singleValue: () => "text-[color:var(--text-on-light)] text-sm",
-  input: () => "text-[color:var(--text-on-light)] text-sm m-0 p-0",
-  multiValue: () => "bg-[color:var(--hairline-light)] rounded text-sm",
-  multiValueLabel: () => "text-[color:var(--text-on-light)] text-sm px-1",
+  placeholder: () => "text-[color:var(--muted-on-light)] text-base md:text-sm",
+  singleValue: () => "text-[color:var(--text-on-light)] text-base md:text-sm",
+  input: () => "text-[color:var(--text-on-light)] text-base md:text-sm m-0 p-0",
+  multiValue: () => "bg-[color:var(--hairline-light)] rounded text-base md:text-sm",
+  multiValueLabel: () => "text-[color:var(--text-on-light)] text-base md:text-sm px-1",
   multiValueRemove: () => "text-[color:var(--muted-on-light)] hover:text-[color:var(--ink)] hover:bg-transparent rounded",
   menu: () => "bg-[color:var(--bone)] border border-[color:var(--hairline-dark-strong)] rounded-md shadow-lg mt-1 overflow-hidden",
   menuList: () => "py-1",
   option: ({ isFocused, isSelected }: { isFocused: boolean; isSelected: boolean }) =>
     [
-      "px-3 py-2 text-sm cursor-pointer",
+      "px-3 py-2.5 text-base md:text-sm cursor-pointer",
       isSelected ? "bg-[color:var(--ember)] text-[color:var(--ember-foreground)]" : "",
       isFocused && !isSelected ? "bg-[color:var(--hairline-light)] text-[color:var(--text-on-light)]" : "",
       !isFocused && !isSelected ? "text-[color:var(--text-on-light)]" : "",
@@ -280,9 +280,9 @@ export function BookingModal() {
 
         <div className="relative flex-1 overflow-y-auto overflow-x-hidden bg-[color:var(--bone)] overscroll-contain">
           {step === 1 && (
-            <div className="flex flex-col md:flex-row h-full min-h-[500px]">
+            <div className="flex flex-col md:flex-row md:h-full min-h-[500px]">
               {/* Left Panel: Intro */}
-              <div className="p-8 md:w-[320px] border-b md:border-b-0 md:border-r border-[color:var(--hairline-light)] bg-white/50 shrink-0">
+              <div className="p-5 md:p-8 md:w-[320px] border-b md:border-b-0 md:border-r border-[color:var(--hairline-light)] bg-white/50 shrink-0">
                 {eventDetails ? (
                   <>
                     <h3 className="font-display text-2xl mb-4">{eventDetails.title}</h3>
@@ -317,7 +317,7 @@ export function BookingModal() {
               </div>
 
               {/* Right Panel: Calendar & Time */}
-              <div className="p-8 flex-1 flex flex-col items-center">
+              <div className="px-5 py-6 md:p-8 flex-1 flex flex-col items-center">
                 <h3 className="font-display text-xl mb-6 w-full text-left">Select a Date & Time</h3>
                 <Calendar
                   mode="single"
@@ -330,7 +330,6 @@ export function BookingModal() {
                   className="w-full mb-8 rounded-md max-w-[90%] mx-auto [--cell-size:2rem]"
                   classNames={{
                     root: "w-full",
-                    day: "flex-1",
                   }}
                 />
 
@@ -348,7 +347,7 @@ export function BookingModal() {
                         <button
                           key={i}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`py-2 text-sm font-medium border rounded-md transition-all ${
+                          className={`py-3 md:py-2 text-sm font-medium border rounded-md transition-all ${
                             selectedTime === slot.time
                               ? "bg-[color:var(--ember)] text-[color:var(--ember-foreground)] border-[color:var(--ember)] ring-2 ring-[color:var(--ember)] ring-offset-1"
                               : "border-[color:var(--hairline-light)] bg-white hover:border-[color:var(--ink)]"
@@ -382,7 +381,7 @@ export function BookingModal() {
           )}
 
           {step === 2 && (
-            <div className="p-8 flex flex-col h-full text-left min-h-[500px] bg-white">
+            <div className="px-5 py-6 md:p-8 flex flex-col md:h-full text-left min-h-[500px] bg-white">
               <h3 className="font-display text-2xl mb-2">Your Details</h3>
               <div className="text-[color:var(--muted-on-light)] mb-8 pb-6 border-b border-[color:var(--hairline-light)] text-sm">
                 You selected <span className="font-medium text-[color:var(--ink)]">{selectedTime && format(new Date(selectedTime), "EEEE, MMMM d, yyyy 'at' HH:mm")}</span>
@@ -395,6 +394,8 @@ export function BookingModal() {
                     const isRequired = field.required !== false && field.hidden !== true;
                     
                     if (field.hidden || field.slug === "location" || field.type === "radioInput") return null;
+
+                    const fieldId = `booking-field-${fieldName}-${i}`;
 
                     let displayLabel = field.label || "";
                     if (!displayLabel) {
@@ -419,11 +420,12 @@ export function BookingModal() {
 
                     return (
                       <div key={`${fieldName}-${i}`}>
-                        <label className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">
+                        <label htmlFor={fieldId} className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">
                           {displayLabel} {isRequired && "*"}
                         </label>
                         {field.type === "textarea" ? (
                           <textarea
+                            id={fieldId}
                             required={isRequired}
                             placeholder={resolvedPlaceholder}
                             value={formResponses[fieldName] || ""}
@@ -434,6 +436,7 @@ export function BookingModal() {
                         ) : field.type === "boolean" || field.type === "checkbox" ? (
                           <div className="flex items-center gap-3 mt-2">
                             <input
+                              id={fieldId}
                               type="checkbox"
                               required={isRequired}
                               checked={!!formResponses[fieldName]}
@@ -444,6 +447,8 @@ export function BookingModal() {
                           </div>
                         ) : field.type === "select" || field.type === "multiselect" || field.type === "radio" ? (
                           <Select
+                            id={fieldId}
+                            inputId={`${fieldId}-select`}
                             isMulti={field.type === "multiselect"}
                             placeholder={resolvedPlaceholder}
                             options={field.options?.map((opt: any) => ({
@@ -476,6 +481,8 @@ export function BookingModal() {
                           />
                         ) : field.type === "phone" ? (
                           <PhoneInput
+                            id={fieldId}
+                            numberInputProps={{ id: `${fieldId}-phone` }}
                             international
                             defaultCountry="NL"
                             countryCallingCodeEditable={false}
@@ -487,6 +494,7 @@ export function BookingModal() {
                           />
                         ) : (
                           <input
+                            id={fieldId}
                             required={isRequired}
                             placeholder={resolvedPlaceholder}
                             type={field.type === "email" ? "email" : "text"}
@@ -501,8 +509,9 @@ export function BookingModal() {
                 ) : (
                   <>
                     <div>
-                      <label className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">Full Name *</label>
+                      <label htmlFor="booking-field-name-fallback" className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">Full Name *</label>
                       <input
+                        id="booking-field-name-fallback"
                         required
                         type="text"
                         value={formResponses["name"] || ""}
@@ -512,8 +521,9 @@ export function BookingModal() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">Email Address *</label>
+                      <label htmlFor="booking-field-email-fallback" className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">Email Address *</label>
                       <input
+                        id="booking-field-email-fallback"
                         required
                         type="email"
                         value={formResponses["email"] || ""}
@@ -523,8 +533,9 @@ export function BookingModal() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">Additional Notes</label>
+                      <label htmlFor="booking-field-notes-fallback" className="block text-sm font-semibold mb-1.5 text-[color:var(--ink)]">Additional Notes</label>
                       <textarea
+                        id="booking-field-notes-fallback"
                         value={formResponses["notes"] || ""}
                         onChange={(e) => setFormResponses((prev) => ({ ...prev, notes: e.target.value }))}
                         rows={4}
@@ -558,7 +569,7 @@ export function BookingModal() {
           )}
 
           {step === 3 && (
-            <div className="p-10 flex flex-col h-full items-center justify-center text-center min-h-[500px] bg-white">
+            <div className="px-5 py-8 md:p-10 flex flex-col md:h-full items-center justify-center text-center min-h-[500px] bg-white">
               <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8">
                 <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
