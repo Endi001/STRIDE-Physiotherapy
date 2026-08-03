@@ -136,7 +136,7 @@ export function BookingModal() {
     if (step === 1 && selectedDate && eventDetails) {
       setLoadingSlots(true);
       setError(null);
-      
+
       const start = startOfDay(selectedDate).toISOString();
       const end = endOfDay(selectedDate).toISOString();
 
@@ -179,10 +179,10 @@ export function BookingModal() {
     if (eventDetails?.bookingFields) {
       for (const field of eventDetails.bookingFields) {
         if (field.hidden || field.type === "radioInput" || field.type === "unknown") continue;
-        
+
         const fieldName = field.slug || "";
         const isStandard = ["name", "email", "attendeePhoneNumber", "notes"].includes(fieldName);
-        
+
         if (!isStandard && field.required !== false) {
           const val = formResponses[fieldName];
           if (field.type === "multiselect") {
@@ -287,11 +287,11 @@ export function BookingModal() {
                 {eventDetails ? (
                   <>
                     <h3 className="font-display text-2xl mb-4">{eventDetails.title}</h3>
-                    <div 
+                    <div
                       className="text-[color:var(--muted-on-light)] mb-8 text-sm leading-relaxed"
                       dangerouslySetInnerHTML={{ __html: eventDetails.description }}
                     />
-                    
+
                     <div className="flex flex-col gap-3 text-sm">
                       <div className="flex items-center gap-3">
                         <svg className="w-5 h-5 text-[color:var(--muted-on-light)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -348,11 +348,10 @@ export function BookingModal() {
                         <button
                           key={i}
                           onClick={() => setSelectedTime(slot.time)}
-                          className={`py-3 md:py-2 text-sm font-medium border rounded-md transition-all ${
-                            selectedTime === slot.time
+                          className={`py-3 md:py-2 text-sm font-medium border rounded-md transition-all ${selectedTime === slot.time
                               ? "bg-[color:var(--ember)] text-[color:var(--ember-foreground)] border-[color:var(--ember)] ring-2 ring-[color:var(--ember)] ring-offset-1"
                               : "border-[color:var(--hairline-light)] bg-white hover:border-[color:var(--ink)]"
-                          }`}
+                            }`}
                         >
                           {format(new Date(slot.time), "HH:mm")}
                         </button>
@@ -362,11 +361,11 @@ export function BookingModal() {
                 </div>
 
                 {error && (
-        <div className="text-red-500 mb-4 text-sm bg-red-50 p-3 rounded flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => setStep(1)} className="ml-2 text-sm underline">Retry</button>
-        </div>
-      )}
+                  <div className="text-red-500 mb-4 text-sm bg-red-50 p-3 rounded flex items-center justify-between">
+                    <span>{error}</span>
+                    <button onClick={() => setStep(1)} className="ml-2 text-sm underline">Retry</button>
+                  </div>
+                )}
 
                 <div className="mt-auto w-full pt-4 border-t border-[color:var(--hairline-light)]">
                   <button
@@ -393,7 +392,7 @@ export function BookingModal() {
                   eventDetails.bookingFields.map((field, i) => {
                     const fieldName = field.slug || `field_${i}`;
                     const isRequired = field.required !== false && field.hidden !== true;
-                    
+
                     if (field.hidden || field.slug === "location" || field.type === "radioInput") return null;
 
                     const fieldId = `booking-field-${fieldName}-${i}`;
@@ -459,15 +458,15 @@ export function BookingModal() {
                             value={
                               field.options
                                 ? field.options
-                                    .map((opt: any) => ({
-                                      value: typeof opt === 'object' ? opt.value || opt.label : opt,
-                                      label: typeof opt === 'object' ? opt.label || opt.value : opt,
-                                    }))
-                                    .filter((o: any) => 
-                                      field.type === "multiselect" 
-                                        ? (formResponses[fieldName] || []).includes(o.value)
-                                        : formResponses[fieldName] === o.value
-                                    )
+                                  .map((opt: any) => ({
+                                    value: typeof opt === 'object' ? opt.value || opt.label : opt,
+                                    label: typeof opt === 'object' ? opt.label || opt.value : opt,
+                                  }))
+                                  .filter((o: any) =>
+                                    field.type === "multiselect"
+                                      ? (formResponses[fieldName] || []).includes(o.value)
+                                      : formResponses[fieldName] === o.value
+                                  )
                                 : null
                             }
                             onChange={(selected: any) => {
