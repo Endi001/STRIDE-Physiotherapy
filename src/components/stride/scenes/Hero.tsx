@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { Link } from "@tanstack/react-router";
 import { stridemedia, clinic } from "@/lib/stride-media";
 import { useBooking } from "../booking-context";
 import gsap from "gsap";
@@ -146,24 +147,14 @@ export function Hero() {
           >
             Book an assessment
           </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              const methodEl = document.getElementById("method");
-              if (!methodEl) return;
-              // Use Lenis smooth-scroll if available (avoids conflicts with GSAP pinned sections)
-              const lenis = (window as any).__lenis;
-              if (lenis?.scrollTo) {
-                lenis.scrollTo(methodEl, { offset: 0, duration: 1.2 });
-              } else {
-                methodEl.scrollIntoView({ behavior: "smooth", block: "start" });
-              }
-            }}
+          <Link
+            to="/"
+            hash="method"
             className="px-5 py-3 border border-[color:var(--hairline-dark-strong)] text-[color:var(--text-on-dark)] hover:border-[color:var(--ember)] hover:text-[color:var(--ember)] transition cursor-pointer"
             style={{ borderRadius: 3 }}
           >
             See how we work
-          </button>
+          </Link>
         </div>
       </div>
 
