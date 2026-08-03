@@ -85,8 +85,8 @@ export function HorizontalRail() {
             <div key={c} className="font-display text-4xl">{c}</div>
           ))}
         </div>
-        <div className="py-12 px-5 text-center">
-          <Link to="/treatments" className="eyebrow underline-offset-4 underline hover:text-[color:var(--ember)]">
+        <div className="py-16 px-5 text-center border-t border-[color:var(--text-on-dark)]/15">
+          <Link to="/treatments" className="eyebrow text-base underline-offset-4 underline hover:text-[color:var(--ember)] tracking-wider">
             → See every condition we treat
           </Link>
         </div>

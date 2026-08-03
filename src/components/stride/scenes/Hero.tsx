@@ -146,13 +146,24 @@ export function Hero() {
           >
             Book an assessment
           </button>
-          <a
-            href="#method"
-            className="px-5 py-3 border border-[color:var(--hairline-dark-strong)] text-[color:var(--text-on-dark)] hover:border-[color:var(--ember)] hover:text-[color:var(--ember)] transition"
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              const methodEl = document.getElementById("method");
+              if (!methodEl) return;
+              // Use Lenis smooth-scroll if available (avoids conflicts with GSAP pinned sections)
+              const lenis = (window as any).__lenis;
+              if (lenis?.scrollTo) {
+                lenis.scrollTo(methodEl, { offset: 0, duration: 1.2 });
+              } else {
+                methodEl.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            }}
+            className="px-5 py-3 border border-[color:var(--hairline-dark-strong)] text-[color:var(--text-on-dark)] hover:border-[color:var(--ember)] hover:text-[color:var(--ember)] transition cursor-pointer"
             style={{ borderRadius: 3 }}
           >
             See how we work
-          </a>
+          </button>
         </div>
       </div>
 

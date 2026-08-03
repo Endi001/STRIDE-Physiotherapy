@@ -58,6 +58,7 @@ export function BookingModal() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const detailsRef = useRef<HTMLHeadingElement>(null);
 
   // Event Details State
   const [eventDetails, setEventDetails] = useState<{
@@ -79,6 +80,13 @@ export function BookingModal() {
 
   // Form State
   const [formResponses, setFormResponses] = useState<Record<string, any>>({});
+
+  // Scroll modal content to top whenever the step changes
+  useEffect(() => {
+    if (open && contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: "auto" });
+    }
+  }, [step, open]);
 
   useEffect(() => {
     if (!open) {
@@ -373,7 +381,11 @@ export function BookingModal() {
 
                 <div className="mt-auto w-full pt-4 border-t border-[color:var(--hairline-light)]">
                   <button
-                    onClick={() => setStep(2)}
+                    onClick={() => {
+                      setStep(2);
+                      // Ensure scroll reset even before React re-renders
+                      requestAnimationFrame(() => contentRef.current?.scrollTo({ top: 0, behavior: "auto" }));
+                    }}
                     disabled={!selectedTime}
                     className="bg-[color:var(--ember)] px-6 py-3 text-[color:var(--ember-foreground)] font-medium cursor-pointer w-full hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed rounded-md shadow-sm"
                   >
@@ -386,7 +398,7 @@ export function BookingModal() {
 
           {step === 2 && (
             <div className="px-5 py-6 md:p-8 flex flex-col md:h-full text-left min-h-[500px] bg-white">
-              <h3 className="font-display text-2xl mb-2">Your Details</h3>
+              <h3 ref={detailsRef} className="font-display text-2xl mb-2">Your Details</h3>
               <div className="text-[color:var(--muted-on-light)] mb-8 pb-6 border-b border-[color:var(--hairline-light)] text-sm">
                 You selected <span className="font-medium text-[color:var(--ink)]">{selectedTime && format(new Date(selectedTime), "EEEE, MMMM d, yyyy 'at' HH:mm")}</span>
               </div>
