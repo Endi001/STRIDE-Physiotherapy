@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -234,7 +235,18 @@ function RootComponent() {
 }
 
 function AppShell() {
+  const routerState = useRouterState();
+  const isAdmin = routerState.location.pathname.startsWith("/admin");
+
   useLenis();
+
+  if (isAdmin) {
+    return (
+      <main id="main">
+        <Outlet />
+      </main>
+    );
+  }
 
   return (
     <>

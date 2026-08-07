@@ -281,4 +281,16 @@
 
 .booking-phone-input .PhoneInputCountrySelect:focus + .PhoneInputCountryIcon--border {
   box-shadow: 0 0 0 1px var(--ember), inset 0 0 0 1px var(--ember);
-}
+}
+
+/* Admin portal shake animation */
+@keyframes admin-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.animate-admin-shake {
+  animation: admin-shake 0.4s ease-in-out;
+}
+

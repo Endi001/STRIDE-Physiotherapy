@@ -8,6 +8,7 @@ export function useLenis() {
   const router = useRouter();
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
+    if (window.location.pathname.startsWith("/admin")) return;
     const prefersReduced =
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
