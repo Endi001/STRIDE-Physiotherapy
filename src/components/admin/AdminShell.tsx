@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { adminLogout } from "@/lib/admin.server";
 import { supabase } from "@/lib/supabase";
+import { BookingsManagement } from "./BookingsManagement";
 
 interface AdminShellProps {
   userEmail: string;
@@ -40,7 +41,7 @@ export function AdminShell({ userEmail, onLogout, children }: AdminShellProps) {
 
   const navItems = [
     { name: "Dashboard", icon: LayoutDashboard, status: "Active" },
-    { name: "Bookings Management", icon: CalendarCheck, status: "Coming Soon" },
+    { name: "Bookings Management", icon: CalendarCheck, status: "Active" },
     { name: "Calendar", icon: Calendar, status: "Coming Soon" },
     { name: "Patient Records", icon: Users, status: "Coming Soon" },
     { name: "Therapists & Schedule", icon: UserCog, status: "Coming Soon" },
@@ -180,7 +181,11 @@ export function AdminShell({ userEmail, onLogout, children }: AdminShellProps) {
 
         {/* Content Body */}
         <main className="flex-1 bg-black overflow-y-auto">
-          {activeTab === "Dashboard" ? children : (
+          {activeTab === "Dashboard" ? (
+            children
+          ) : activeTab === "Bookings Management" ? (
+            <BookingsManagement />
+          ) : (
             <div className="p-8 text-center max-w-md mx-auto mt-20">
               <h2 className="text-xl font-display text-white mb-2">Coming Soon</h2>
               <p className="text-sm text-[color:var(--muted-on-dark)] leading-relaxed">
