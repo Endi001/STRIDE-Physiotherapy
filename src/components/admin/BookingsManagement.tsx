@@ -3,22 +3,16 @@ import { toast } from "sonner";
 import {
   Calendar,
   Search,
-  User,
   Mail,
   Phone,
-  FileText,
   Clock,
   Trash2,
-  RefreshCw,
   Plus,
   X,
-  Filter,
-  CheckCircle2,
-  XCircle,
-  HelpCircle,
-  Play,
   CalendarCheck,
   AlertTriangle,
+  ChevronDown,
+  CheckSquare,
 } from "lucide-react";
 import {
   getCalBookingsList,
@@ -27,23 +21,47 @@ import {
   getCalSlots,
   createCalBooking,
   CalBooking,
-  CalAttendee,
 } from "@/lib/cal-api";
+
+// Real Cal.com booking form options for "Initial Assessment — Stride Physiotherapy"
+const REASON_FOR_VISIT_OPTIONS = [
+  "Back pain",
+  "Neck pain",
+  "Joint pain",
+  "Muscle pain",
+  "Post-operative rehabilitation",
+  "Injury recovery",
+  "Mobility problems",
+  "Chronic pain",
+  "Sports injuries",
+];
+
+const ISSUE_DURATION_OPTIONS = [
+  "<1 week",
+  "1–4 weeks",
+  "1–6 months",
+  "6+ months",
+];
+
+const SEEN_PHYSIO_OPTIONS = ["Yes", "No"];
+
+// The only real public event type on this Cal.com account
+const EVENT_TYPE_ID = 6323130; // "Initial Assessment — Stride Physiotherapy" (slug: 1h)
 
 export function BookingsManagement() {
   const [bookings, setBookings] = useState<CalBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>("upcoming");
   const [searchTerm, setSearchTerm] = useState("");
-  const [therapistFilter, setTherapistFilter] = useState("all");
-  const [serviceFilter, setServiceFilter] = useState("all");
+  const [reasonFilter, setReasonFilter] = useState("all");
 
-  // Mutation Modals States
+  // Cancel Modal
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [selectedBookingForCancel, setSelectedBookingForCancel] = useState<CalBooking | null>(null);
   const [cancellationReason, setCancellationReason] = useState("");
   const [cancellingInProgress, setCancellingInProgress] = useState(false);
 
+  // Reschedule Modal
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
   const [selectedBookingForReschedule, setSelectedBookingForReschedule] = useState<CalBooking | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -52,31 +70,30 @@ export function BookingsManagement() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [reschedulingInProgress, setReschedulingInProgress] = useState(false);
 
+  // Manual Booking Form (matches real Cal.com intake form)
   const [manualBookingOpen, setManualBookingOpen] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualEmail, setManualEmail] = useState("");
   const [manualPhone, setManualPhone] = useState("");
-  const [manualNotes, setManualNotes] = useState("");
+  const [manualReasonForVisit, setManualReasonForVisit] = useState<string[]>([]);
+  const [manualIssueDuration, setManualIssueDuration] = useState("");
+  const [manualSeenPhysio, setManualSeenPhysio] = useState("");
+  const [manualInsuranceMethod, setManualInsuranceMethod] = useState("");
   const [manualDate, setManualDate] = useState("");
-  const [manualService, setManualService] = useState("initial-assessment"); // slug
   const [manualSlots, setManualSlots] = useState<{ time: string }[]>([]);
   const [selectedManualSlot, setSelectedManualSlot] = useState<string | null>(null);
   const [loadingManualSlots, setLoadingManualSlots] = useState(false);
   const [manualBookingInProgress, setManualBookingInProgress] = useState(false);
 
-  // Hardcoded therapists mapping for demonstration
-  const therapists = ["Conor M.", "Maeve O'B."];
-
-  // Fetch Bookings list
+  // Fetch bookings from Cal.com
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      // Cal.com status filters: upcoming, past, cancelled
-      const data = await getCalBookingsList({ 
+      const data = await getCalBookingsList({
         data: {
           status: statusFilter === "all" ? undefined : statusFilter,
           search: searchTerm || undefined,
-        }
+        },
       });
       setBookings(data);
     } catch (error) {
@@ -94,20 +111,23 @@ export function BookingsManagement() {
   // Load slots for rescheduling when date is picked
   useEffect(() => {
     if (!rescheduleDate || !selectedBookingForReschedule) return;
-    
+
+    // Validate date format (YYYY-MM-DD) and check year is reasonable (>= 2000)
+    const match = rescheduleDate.match(/^(\d{4})-\d{2}-\d{2}$/);
+    if (!match || parseInt(match[1], 10) < 2000) return;
+
     const loadRescheduleSlots = async () => {
       setLoadingSlots(true);
       try {
         const startOfDay = `${rescheduleDate}T00:00:00Z`;
         const endOfDay = `${rescheduleDate}T23:59:59Z`;
-        const eventTypeId = selectedBookingForReschedule.eventType?.id || 1;
-        
+
         const slots = await getCalSlots({
           data: {
             start: startOfDay,
             end: endOfDay,
-            eventTypeId,
-          }
+            eventTypeId: EVENT_TYPE_ID,
+          },
         });
         setRescheduleSlots(slots);
       } catch (error) {
@@ -121,38 +141,40 @@ export function BookingsManagement() {
     loadRescheduleSlots();
   }, [rescheduleDate, selectedBookingForReschedule]);
 
-  // Load slots for manual booking when date/service is picked
+  // Load slots for manual booking when date is picked
   useEffect(() => {
-    if (!manualDate || !manualService) return;
-    
+    if (!manualDate) return;
+
+    // Validate date format (YYYY-MM-DD) and check year is reasonable (>= 2000)
+    const match = manualDate.match(/^(\d{4})-\d{2}-\d{2}$/);
+    if (!match || parseInt(match[1], 10) < 2000) return;
+
     const loadManualSlots = async () => {
       setLoadingManualSlots(true);
       try {
         const startOfDay = `${manualDate}T00:00:00Z`;
         const endOfDay = `${manualDate}T23:59:59Z`;
-        // Mapping slug to a mock event ID for slot querying
-        const eventTypeId = manualService === "initial-assessment" ? 1 : manualService === "sports-rehab" ? 2 : 3;
-        
+
         const slots = await getCalSlots({
           data: {
             start: startOfDay,
             end: endOfDay,
-            eventTypeId,
-          }
+            eventTypeId: EVENT_TYPE_ID,
+          },
         });
         setManualSlots(slots);
       } catch (error) {
         console.error("Load manual slots failed:", error);
-        toast.error("Failed to fetch slots");
+        toast.error("Failed to fetch available slots");
       } finally {
         setLoadingManualSlots(false);
       }
     };
 
     loadManualSlots();
-  }, [manualDate, manualService]);
+  }, [manualDate]);
 
-  // Action Handlers
+  // Action handlers
   const handleCancelBooking = async () => {
     if (!selectedBookingForCancel) return;
     setCancellingInProgress(true);
@@ -161,11 +183,12 @@ export function BookingsManagement() {
         data: {
           bookingUid: selectedBookingForCancel.uid,
           cancellationReason: cancellationReason || undefined,
-        }
+        },
       });
       if (res.success) {
         toast.success("Booking cancelled successfully!");
         setCancelModalOpen(false);
+        setCancellationReason("");
         fetchBookings();
       } else {
         toast.error("Failed to cancel booking");
@@ -188,7 +211,7 @@ export function BookingsManagement() {
         data: {
           bookingUid: selectedBookingForReschedule.uid,
           start: selectedRescheduleSlot,
-        }
+        },
       });
       if (res.success) {
         toast.success("Booking rescheduled successfully!");
@@ -206,12 +229,47 @@ export function BookingsManagement() {
     }
   };
 
+  const resetManualForm = () => {
+    setManualName("");
+    setManualEmail("");
+    setManualPhone("");
+    setManualReasonForVisit([]);
+    setManualIssueDuration("");
+    setManualSeenPhysio("");
+    setManualInsuranceMethod("");
+    setManualDate("");
+    setManualSlots([]);
+    setSelectedManualSlot(null);
+  };
+
   const handleCreateManualBooking = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedManualSlot || !manualName || !manualEmail || !manualPhone) {
-      toast.error("Please fill in all required fields and pick a slot");
+
+    if (!manualName || !manualEmail || !manualPhone) {
+      toast.error("Please fill in name, email and phone number");
       return;
     }
+    if (manualReasonForVisit.length === 0) {
+      toast.error("Please select at least one reason for visit");
+      return;
+    }
+    if (!manualIssueDuration) {
+      toast.error("Please select how long the issue has been present");
+      return;
+    }
+    if (!manualSeenPhysio) {
+      toast.error("Please indicate if the patient has seen a physiotherapist before");
+      return;
+    }
+    if (!manualInsuranceMethod) {
+      toast.error("Please enter the insurance/payment method");
+      return;
+    }
+    if (!selectedManualSlot) {
+      toast.error("Please select an appointment time slot");
+      return;
+    }
+
     setManualBookingInProgress(true);
     try {
       await createCalBooking({
@@ -220,19 +278,15 @@ export function BookingsManagement() {
           name: manualName,
           email: manualEmail,
           phoneNumber: manualPhone,
-          notes: manualNotes || undefined,
-          eventTypeSlug: manualService,
-        }
+          reasonForVisit: manualReasonForVisit,
+          issueDuration: manualIssueDuration,
+          seenPhysioBefore: manualSeenPhysio,
+          insuranceMethod: manualInsuranceMethod,
+        },
       });
       toast.success("Manual booking scheduled successfully!");
       setManualBookingOpen(false);
-      // Reset form
-      setManualName("");
-      setManualEmail("");
-      setManualPhone("");
-      setManualNotes("");
-      setManualDate("");
-      setSelectedManualSlot(null);
+      resetManualForm();
       fetchBookings();
     } catch (error: any) {
       toast.error(error.message || "Failed to create manual booking");
@@ -241,24 +295,44 @@ export function BookingsManagement() {
     }
   };
 
-  // Status badges helper
-  const getStatusBadge = (status: CalBooking["status"]) => {
-    const normStatus = status.toLowerCase();
-    switch (normStatus) {
+  const toggleReasonForVisit = (reason: string) => {
+    setManualReasonForVisit((prev) =>
+      prev.includes(reason) ? prev.filter((r) => r !== reason) : [...prev, reason]
+    );
+  };
+
+  // Derive real display status from start time (Cal.com returns 'accepted' for all non-cancelled, even past)
+  const getDisplayStatus = (booking: CalBooking): "upcoming" | "past" | "cancelled" => {
+    if (booking.status === "cancelled" || booking.status === "rejected") return "cancelled";
+    const start = new Date(booking.startTime);
+    if (!isNaN(start.getTime()) && start < new Date()) return "past";
+    return "upcoming";
+  };
+
+  const getStatusBadge = (booking: CalBooking) => {
+    const displayStatus = getDisplayStatus(booking);
+    switch (displayStatus) {
       case "upcoming":
-      case "accepted":
-        return <span className="inline-flex items-center border border-[color:var(--slate-clinical)]/30 text-[color:var(--slate-clinical)] bg-[color:var(--slate-clinical)]/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">Upcoming</span>;
+        return (
+          <span className="inline-flex items-center border border-[color:var(--slate-clinical)]/30 text-[color:var(--slate-clinical)] bg-[color:var(--slate-clinical)]/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">
+            Upcoming
+          </span>
+        );
       case "past":
-        return <span className="inline-flex items-center border border-emerald-500/20 text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">Completed</span>;
+        return (
+          <span className="inline-flex items-center border border-emerald-500/20 text-emerald-400 bg-emerald-500/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">
+            Completed
+          </span>
+        );
       case "cancelled":
-      case "rejected":
-        return <span className="inline-flex items-center border border-rose-500/20 text-rose-400 bg-rose-500/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">Cancelled</span>;
-      default:
-        return <span className="inline-flex items-center border border-neutral-500/20 text-neutral-400 bg-neutral-500/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">{status}</span>;
+        return (
+          <span className="inline-flex items-center border border-rose-500/20 text-rose-400 bg-rose-500/5 px-2 py-0.5 rounded font-mono text-[9px] uppercase tracking-wider">
+            Cancelled
+          </span>
+        );
     }
   };
 
-  // Helper to format date-time values cleanly
   const formatDateTime = (isoString: string) => {
     try {
       const date = new Date(isoString);
@@ -266,41 +340,32 @@ export function BookingsManagement() {
         weekday: "short",
         day: "numeric",
         month: "short",
+        year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
       });
-    } catch (e) {
+    } catch {
       return isoString;
     }
   };
 
-  // Client-side filtering logic
-  const filteredBookings = bookings.filter(b => {
-    // Filter by therapist (demonstration mapping)
-    if (therapistFilter !== "all") {
-      const isConor = b.id.charCodeAt(0) % 2 === 0; // Simulated attribution
-      const assigned = isConor ? "Conor M." : "Maeve O'B.";
-      if (assigned !== therapistFilter) return false;
-    }
-
-    // Filter by service slug
-    if (serviceFilter !== "all" && b.eventType?.slug !== serviceFilter) {
-      return false;
-    }
-
-    return true;
+  // Client-side filter by Reason for Visit (from bookingFieldsResponses)
+  const filteredBookings = bookings.filter((b) => {
+    if (reasonFilter === "all") return true;
+    const reasons: string[] = b.responses?.["Reason-for-visit"] || [];
+    return reasons.includes(reasonFilter);
   });
 
   return (
     <div className="space-y-6 p-6 md:p-8 bg-black text-white">
-      {/* Tab Header & Quick Action */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-display tracking-tight text-white uppercase mb-1">
             Bookings Management
           </h1>
           <p className="text-xs text-[color:var(--muted-on-dark)] font-mono uppercase tracking-wider">
-            Real-time Cal.com scheduler engine synchronization
+            Real-time Cal.com scheduler engine synchronisation
           </p>
         </div>
         <button
@@ -314,7 +379,10 @@ export function BookingsManagement() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] p-4 flex flex-col gap-4" style={{ borderRadius: 4 }}>
+      <div
+        className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] p-4 flex flex-col gap-4"
+        style={{ borderRadius: 4 }}
+      >
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
@@ -330,7 +398,10 @@ export function BookingsManagement() {
           </div>
 
           {/* Status Tabs */}
-          <div className="flex bg-black/40 border border-[color:var(--hairline-dark)] p-0.5" style={{ borderRadius: 3 }}>
+          <div
+            className="flex bg-black/40 border border-[color:var(--hairline-dark)] p-0.5"
+            style={{ borderRadius: 3 }}
+          >
             {["upcoming", "past", "cancelled", "all"].map((status) => (
               <button
                 key={status}
@@ -348,49 +419,35 @@ export function BookingsManagement() {
           </div>
         </div>
 
-        {/* Dropdowns filters */}
-        <div className="flex flex-wrap gap-4 border-t border-white/5 pt-3">
+        {/* Reason for Visit Filter — actual Cal.com intake field */}
+        <div className="flex flex-wrap items-center gap-4 border-t border-white/5 pt-3">
           <div className="flex items-center gap-2">
             <span className="text-[9px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-              Therapist:
+              Reason for Visit:
             </span>
-            <select
-              value={therapistFilter}
-              onChange={(e) => setTherapistFilter(e.target.value)}
-              className="bg-black/50 border border-[color:var(--hairline-dark)] text-white text-[10px] font-mono px-2 py-1 uppercase outline-none focus:border-[color:var(--ember)]"
-              style={{ borderRadius: 2 }}
-            >
-              <option value="all">All Staff</option>
-              {therapists.map(t => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-[9px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-              Treatment:
-            </span>
-            <select
-              value={serviceFilter}
-              onChange={(e) => setServiceFilter(e.target.value)}
-              className="bg-black/50 border border-[color:var(--hairline-dark)] text-white text-[10px] font-mono px-2 py-1 uppercase outline-none focus:border-[color:var(--ember)]"
-              style={{ borderRadius: 2 }}
-            >
-              <option value="all">All Services</option>
-              <option value="initial-assessment">Initial Assessment</option>
-              <option value="sports-rehab">Sports Rehab</option>
-              <option value="manual-therapy">Manual Therapy</option>
-              <option value="dry-needling">Dry Needling</option>
-            </select>
+            <div className="relative">
+              <select
+                value={reasonFilter}
+                onChange={(e) => setReasonFilter(e.target.value)}
+                className="bg-black/50 border border-[color:var(--hairline-dark)] text-white text-[10px] font-mono px-2 py-1 pr-6 uppercase outline-none focus:border-[color:var(--ember)] appearance-none cursor-pointer"
+                style={{ borderRadius: 2 }}
+              >
+                <option value="all">All Reasons</option>
+                {REASON_FOR_VISIT_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-1.5 top-1.5 h-3 w-3 text-[color:var(--muted-on-dark)] pointer-events-none" />
+            </div>
           </div>
 
           <button
             onClick={() => {
               setSearchTerm("");
               setStatusFilter("upcoming");
-              setTherapistFilter("all");
-              setServiceFilter("all");
+              setReasonFilter("all");
             }}
             className="ml-auto text-[9px] font-mono uppercase text-[color:var(--muted-on-dark)] hover:text-[color:var(--ember)] transition-colors underline"
           >
@@ -399,13 +456,19 @@ export function BookingsManagement() {
         </div>
       </div>
 
-      {/* Bookings Table / List */}
-      <div className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] overflow-hidden" style={{ borderRadius: 4 }}>
+      {/* Bookings Table */}
+      <div
+        className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] overflow-hidden"
+        style={{ borderRadius: 4 }}
+      >
         {loading ? (
-          /* Loading skeletons */
           <div className="p-6 space-y-4">
-            {[1, 2, 3, 4].map(n => (
-              <div key={n} className="flex flex-col sm:flex-row gap-4 p-4 border border-[color:var(--hairline-dark)] animate-pulse bg-black/10" style={{ borderRadius: 3 }}>
+            {[1, 2, 3, 4].map((n) => (
+              <div
+                key={n}
+                className="flex flex-col sm:flex-row gap-4 p-4 border border-[color:var(--hairline-dark)] animate-pulse bg-black/10"
+                style={{ borderRadius: 3 }}
+              >
                 <div className="h-6 w-32 bg-white/5 rounded" />
                 <div className="h-6 w-48 bg-white/5 rounded flex-1" />
                 <div className="h-6 w-24 bg-white/5 rounded" />
@@ -422,26 +485,42 @@ export function BookingsManagement() {
             </p>
           </div>
         ) : (
-          /* Responsive Table content */
           <div className="overflow-x-auto">
-            {/* Desktop View Table */}
+            {/* Desktop Table */}
             <table className="w-full text-left border-collapse hidden md:table">
               <thead>
                 <tr className="border-b border-[color:var(--hairline-dark)] bg-black/25">
-                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">Date & Time</th>
-                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">Patient Details</th>
-                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">Service Type</th>
-                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">Therapist</th>
-                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">Status</th>
-                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)] text-right">Actions</th>
+                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">
+                    Date &amp; Time
+                  </th>
+                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">
+                    Patient Details
+                  </th>
+                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">
+                    Intake Summary
+                  </th>
+                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)]">
+                    Status
+                  </th>
+                  <th className="p-4 font-mono text-[9px] uppercase tracking-wider text-[color:var(--muted-on-dark)] text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredBookings.map((booking) => {
-                  const patient = booking.attendees[0] || { name: "Unknown Client", email: "", phoneNumber: "" };
-                  const isEven = booking.id.charCodeAt(0) % 2 === 0;
-                  const assignedTherapist = isEven ? "Conor M." : "Maeve O'B.";
-                  const isCancelled = booking.status.toLowerCase() === "cancelled";
+                  const patient = booking.attendees[0] || {
+                    name: "Unknown Client",
+                    email: "",
+                    phoneNumber: "",
+                  };
+                  const displayStatus = getDisplayStatus(booking);
+                  const isCancelled = displayStatus === "cancelled";
+                  const isPast = displayStatus === "past";
+                  const reasons: string[] = booking.responses?.["Reason-for-visit"] || [];
+                  const issueDuration = booking.responses?.["How-long-have-you-had-this-issue"];
+                  const seenPhysio = booking.responses?.["Have-you-seen-a-physiotherapist-for-this-before"];
+                  const insuranceMethod = booking.responses?.["Insurance-payment-method"];
 
                   return (
                     <tr key={booking.id} className="hover:bg-white/5 transition-colors">
@@ -449,46 +528,70 @@ export function BookingsManagement() {
                         <p className="text-xs font-mono text-white font-semibold">
                           {formatDateTime(booking.startTime)}
                         </p>
+                        <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)] mt-0.5 uppercase">
+                          Initial Assessment · 60 min
+                        </p>
                       </td>
                       <td className="p-4 align-top">
                         <div className="space-y-1">
                           <p className="text-xs font-semibold text-white">{patient.name}</p>
                           <div className="flex flex-col gap-0.5 text-[10px] font-mono text-[color:var(--muted-on-dark)] lowercase">
-                            <span className="flex items-center gap-1.5"><Mail className="h-3 w-3" /> {patient.email}</span>
+                            <span className="flex items-center gap-1.5">
+                              <Mail className="h-3 w-3" /> {patient.email}
+                            </span>
                             {patient.phoneNumber && (
-                              <span className="flex items-center gap-1.5"><Phone className="h-3 w-3" /> {patient.phoneNumber}</span>
+                              <span className="flex items-center gap-1.5">
+                                <Phone className="h-3 w-3" /> {patient.phoneNumber}
+                              </span>
                             )}
                           </div>
-                          {booking.responses?.notes && (
-                            <div className="mt-2 p-2 bg-black/30 border border-[color:var(--hairline-dark)]" style={{ borderRadius: 2 }}>
-                              <p className="text-[9px] font-mono text-neutral-400 capitalize-first leading-relaxed">
-                                <span className="text-[color:var(--slate-clinical)] font-bold">Notes: </span>
-                                {booking.responses.notes}
-                              </p>
+                        </div>
+                      </td>
+                      <td className="p-4 align-top max-w-[260px]">
+                        <div className="space-y-1.5">
+                          {reasons.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {reasons.map((r) => (
+                                <span
+                                  key={r}
+                                  className="inline-block border border-[color:var(--ember)]/20 text-[color:var(--ember)]/80 bg-[color:var(--ember)]/5 px-1.5 py-0.5 font-mono text-[8px] uppercase"
+                                  style={{ borderRadius: 2 }}
+                                >
+                                  {r}
+                                </span>
+                              ))}
                             </div>
+                          )}
+                          {issueDuration && (
+                            <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">
+                              <span className="text-white/60">Duration:</span> {issueDuration}
+                            </p>
+                          )}
+                          {seenPhysio && (
+                            <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">
+                              <span className="text-white/60">Seen physio before:</span> {seenPhysio}
+                            </p>
+                          )}
+                          {insuranceMethod && (
+                            <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">
+                              <span className="text-white/60">Payment:</span> {insuranceMethod}
+                            </p>
                           )}
                         </div>
                       </td>
                       <td className="p-4 align-top">
-                        <span className="text-xs font-mono uppercase text-white">
-                          {booking.eventType?.title || "Physio Session"}
-                        </span>
-                      </td>
-                      <td className="p-4 align-top">
-                        <span className="text-xs font-mono uppercase text-[color:var(--muted-on-dark)]">
-                          {assignedTherapist}
-                        </span>
-                      </td>
-                      <td className="p-4 align-top">
-                        {getStatusBadge(booking.status)}
+                        {getStatusBadge(booking)}
                         {booking.cancellationReason && (
-                          <p className="text-[9px] font-mono text-rose-400/80 mt-1 max-w-[200px] truncate" title={booking.cancellationReason}>
+                          <p
+                            className="text-[9px] font-mono text-rose-400/80 mt-1 max-w-[200px] truncate"
+                            title={booking.cancellationReason}
+                          >
                             Reason: {booking.cancellationReason}
                           </p>
                         )}
                       </td>
                       <td className="p-4 align-top text-right">
-                        {!isCancelled && (
+                        {!isCancelled && !isPast && (
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => {
@@ -520,13 +623,20 @@ export function BookingsManagement() {
               </tbody>
             </table>
 
-            {/* Mobile View List */}
+            {/* Mobile Cards */}
             <div className="md:hidden divide-y divide-white/5">
               {filteredBookings.map((booking) => {
-                const patient = booking.attendees[0] || { name: "Unknown Client", email: "", phoneNumber: "" };
-                const isEven = booking.id.charCodeAt(0) % 2 === 0;
-                const assignedTherapist = isEven ? "Conor M." : "Maeve O'B.";
-                const isCancelled = booking.status.toLowerCase() === "cancelled";
+                const patient = booking.attendees[0] || {
+                  name: "Unknown Client",
+                  email: "",
+                  phoneNumber: "",
+                };
+                const displayStatus = getDisplayStatus(booking);
+                const isCancelled = displayStatus === "cancelled";
+                const isPast = displayStatus === "past";
+                const reasons: string[] = booking.responses?.["Reason-for-visit"] || [];
+                const issueDuration = booking.responses?.["How-long-have-you-had-this-issue"];
+                const insuranceMethod = booking.responses?.["Insurance-payment-method"];
 
                 return (
                   <div key={booking.id} className="p-4 space-y-3 bg-black/10">
@@ -535,33 +645,63 @@ export function BookingsManagement() {
                         <p className="text-xs font-mono text-white font-semibold">
                           {formatDateTime(booking.startTime)}
                         </p>
-                        <span className="text-[10px] font-mono text-[color:var(--muted-on-dark)] uppercase">
-                          {booking.eventType?.title || "Physio Session"}
+                        <span className="text-[9px] font-mono text-[color:var(--muted-on-dark)] uppercase">
+                          Initial Assessment · 60 min
                         </span>
                       </div>
-                      {getStatusBadge(booking.status)}
+                      {getStatusBadge(booking)}
                     </div>
 
                     <div className="space-y-1">
                       <p className="text-xs font-semibold text-white">{patient.name}</p>
-                      <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)]">{patient.email}</p>
-                      {patient.phoneNumber && (
-                        <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)]">{patient.phoneNumber}</p>
-                      )}
-                      <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)] uppercase mt-1">
-                        Therapist: {assignedTherapist}
+                      <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)]">
+                        {patient.email}
                       </p>
+                      {patient.phoneNumber && (
+                        <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)]">
+                          {patient.phoneNumber}
+                        </p>
+                      )}
                     </div>
 
-                    {booking.responses?.notes && (
-                      <div className="p-2 bg-black/35 border border-[color:var(--hairline-dark)]" style={{ borderRadius: 2 }}>
-                        <p className="text-[9px] font-mono text-neutral-400">
-                          {booking.responses.notes}
-                        </p>
+                    {(reasons.length > 0 || issueDuration || insuranceMethod) && (
+                      <div
+                        className="p-2 bg-black/30 border border-[color:var(--hairline-dark)] space-y-1.5"
+                        style={{ borderRadius: 2 }}
+                      >
+                        {reasons.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {reasons.map((r) => (
+                              <span
+                                key={r}
+                                className="inline-block border border-[color:var(--ember)]/20 text-[color:var(--ember)]/80 bg-[color:var(--ember)]/5 px-1.5 py-0.5 font-mono text-[8px] uppercase"
+                                style={{ borderRadius: 2 }}
+                              >
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {issueDuration && (
+                          <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">
+                            Duration: {issueDuration}
+                          </p>
+                        )}
+                        {insuranceMethod && (
+                          <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">
+                            Payment: {insuranceMethod}
+                          </p>
+                        )}
                       </div>
                     )}
 
-                    {!isCancelled && (
+                    {booking.cancellationReason && (
+                      <p className="text-[9px] font-mono text-rose-400/80">
+                        Reason: {booking.cancellationReason}
+                      </p>
+                    )}
+
+                    {!isCancelled && !isPast && (
                       <div className="flex gap-2 pt-2 border-t border-white/5">
                         <button
                           onClick={() => {
@@ -596,20 +736,38 @@ export function BookingsManagement() {
       {/* MODAL 1: Cancel Booking */}
       {cancelModalOpen && selectedBookingForCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-md w-full p-6 space-y-4" style={{ borderRadius: 4 }}>
+          <div
+            className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-md w-full p-6 space-y-4"
+            style={{ borderRadius: 4 }}
+          >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2 text-rose-500">
                 <AlertTriangle className="h-5 w-5" />
-                <h3 className="text-lg font-display uppercase tracking-tight text-white">Cancel Appointment</h3>
+                <h3 className="text-lg font-display uppercase tracking-tight text-white">
+                  Cancel Appointment
+                </h3>
               </div>
-              <button onClick={() => setCancelModalOpen(false)} className="text-neutral-400 hover:text-white">
+              <button
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setCancellationReason("");
+                }}
+                className="text-neutral-400 hover:text-white"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
-            
+
             <p className="text-xs text-[color:var(--muted-on-dark)] leading-relaxed font-mono">
-              Are you sure you want to cancel the appointment for <strong className="text-white">{(selectedBookingForCancel.attendees[0] || {}).name}</strong> on{" "}
-              <strong className="text-white">{formatDateTime(selectedBookingForCancel.startTime)}</strong>? This will permanently cancel the slot on Cal.com.
+              Are you sure you want to cancel the appointment for{" "}
+              <strong className="text-white">
+                {(selectedBookingForCancel.attendees[0] || {}).name}
+              </strong>{" "}
+              on{" "}
+              <strong className="text-white">
+                {formatDateTime(selectedBookingForCancel.startTime)}
+              </strong>
+              ? This will permanently cancel the slot on Cal.com.
             </p>
 
             <div className="space-y-1.5">
@@ -628,7 +786,10 @@ export function BookingsManagement() {
 
             <div className="flex justify-end gap-3 pt-2">
               <button
-                onClick={() => setCancelModalOpen(false)}
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setCancellationReason("");
+                }}
                 className="px-4 py-2 border border-white/10 hover:border-white/20 text-xs font-mono uppercase text-[color:var(--muted-on-dark)] hover:text-white"
                 style={{ borderRadius: 3 }}
               >
@@ -650,11 +811,16 @@ export function BookingsManagement() {
       {/* MODAL 2: Reschedule Booking */}
       {rescheduleModalOpen && selectedBookingForReschedule && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-          <div className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-lg w-full p-6 space-y-4" style={{ borderRadius: 4 }}>
+          <div
+            className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-lg w-full p-6 space-y-4"
+            style={{ borderRadius: 4 }}
+          >
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2 text-[color:var(--ember)]">
                 <CalendarCheck className="h-5 w-5" />
-                <h3 className="text-lg font-display uppercase tracking-tight text-white">Reschedule Booking</h3>
+                <h3 className="text-lg font-display uppercase tracking-tight text-white">
+                  Reschedule Booking
+                </h3>
               </div>
               <button
                 onClick={() => {
@@ -670,11 +836,20 @@ export function BookingsManagement() {
             </div>
 
             <div className="text-xs text-[color:var(--muted-on-dark)] font-mono space-y-1">
-              <p>Patient: <strong className="text-white">{(selectedBookingForReschedule.attendees[0] || {}).name}</strong></p>
-              <p>Current: <strong className="text-white">{formatDateTime(selectedBookingForReschedule.startTime)}</strong></p>
+              <p>
+                Patient:{" "}
+                <strong className="text-white">
+                  {(selectedBookingForReschedule.attendees[0] || {}).name}
+                </strong>
+              </p>
+              <p>
+                Current:{" "}
+                <strong className="text-white">
+                  {formatDateTime(selectedBookingForReschedule.startTime)}
+                </strong>
+              </p>
             </div>
 
-            {/* Pick Reschedule Date */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
                 Select New Date
@@ -683,13 +858,15 @@ export function BookingsManagement() {
                 type="date"
                 min={new Date().toISOString().split("T")[0]}
                 value={rescheduleDate}
-                onChange={(e) => setRescheduleDate(e.target.value)}
+                onChange={(e) => {
+                  setRescheduleDate(e.target.value);
+                  setSelectedRescheduleSlot(null);
+                }}
                 className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none"
                 style={{ borderRadius: 3 }}
               />
             </div>
 
-            {/* Time slot lists */}
             {rescheduleDate && (
               <div className="space-y-2">
                 <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider block">
@@ -758,20 +935,30 @@ export function BookingsManagement() {
         </div>
       )}
 
-      {/* MODAL 3: Manual Booking Creation Form */}
+      {/* MODAL 3: Manual / Phone Booking Form — matches real Cal.com intake form */}
       {manualBookingOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-lg w-full p-6 space-y-4 my-8" style={{ borderRadius: 4 }}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+          <div
+            className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-xl w-full p-6 space-y-5 my-8"
+            style={{ borderRadius: 4 }}
+          >
+            {/* Header */}
             <div className="flex justify-between items-start">
               <div className="flex items-center gap-2 text-[color:var(--ember)]">
                 <Plus className="h-5 w-5" />
-                <h3 className="text-lg font-display uppercase tracking-tight text-white">Manual / Phone Booking</h3>
+                <div>
+                  <h3 className="text-lg font-display uppercase tracking-tight text-white">
+                    Manual / Phone Booking
+                  </h3>
+                  <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)] uppercase tracking-wider mt-0.5">
+                    Initial Assessment — Stride Physiotherapy
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => {
                   setManualBookingOpen(false);
-                  setManualDate("");
-                  setSelectedManualSlot(null);
+                  resetManualForm();
                 }}
                 className="text-neutral-400 hover:text-white"
               >
@@ -779,162 +966,241 @@ export function BookingsManagement() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateManualBooking} className="space-y-4">
-              {/* Patient Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-                    Patient Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={manualName}
-                    onChange={(e) => setManualName(e.target.value)}
-                    placeholder="Emma Byrne"
-                    className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none"
-                    style={{ borderRadius: 3 }}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-                    Patient Email *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={manualEmail}
-                    onChange={(e) => setManualEmail(e.target.value)}
-                    placeholder="emma.byrne@gmail.com"
-                    className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none"
-                    style={{ borderRadius: 3 }}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={manualPhone}
-                    onChange={(e) => setManualPhone(e.target.value)}
-                    placeholder="+353871234567"
-                    className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none"
-                    style={{ borderRadius: 3 }}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-                    Treatment Type *
-                  </label>
-                  <select
-                    value={manualService}
-                    onChange={(e) => {
-                      setManualService(e.target.value);
-                      setSelectedManualSlot(null);
-                    }}
-                    className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none uppercase"
-                    style={{ borderRadius: 3 }}
-                  >
-                    <option value="initial-assessment">Initial Assessment (1h)</option>
-                    <option value="sports-rehab">Sports Rehab (45m)</option>
-                    <option value="manual-therapy">Manual Therapy (45m)</option>
-                    <option value="dry-needling">Dry Needling (45m)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-                  Intake Notes
-                </label>
-                <textarea
-                  value={manualNotes}
-                  onChange={(e) => setManualNotes(e.target.value)}
-                  placeholder="E.g., patient complains of lower back stiffness..."
-                  rows={2}
-                  className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none resize-none uppercase"
-                  style={{ borderRadius: 3 }}
-                />
-              </div>
-
-              {/* Date & Time Picker */}
-              <div className="space-y-3 border-t border-white/5 pt-3">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
-                    Appointment Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    min={new Date().toISOString().split("T")[0]}
-                    value={manualDate}
-                    onChange={(e) => {
-                      setManualDate(e.target.value);
-                      setSelectedManualSlot(null);
-                    }}
-                    className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none"
-                    style={{ borderRadius: 3 }}
-                  />
-                </div>
-
-                {manualDate && (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider block">
-                      Choose Time Slot *
+            <form onSubmit={handleCreateManualBooking} className="space-y-5">
+              {/* Section: Patient Details */}
+              <div>
+                <p className="text-[9px] font-mono uppercase text-[color:var(--ember)] tracking-widest mb-3 border-b border-[color:var(--ember)]/10 pb-1.5">
+                  Patient Details
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Name */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Full Name *
                     </label>
-                    {loadingManualSlots ? (
-                      <div className="h-16 flex items-center justify-center text-xs font-mono text-[color:var(--muted-on-dark)] animate-pulse">
-                        Scanning available slots...
-                      </div>
-                    ) : manualSlots.length === 0 ? (
-                      <p className="text-xs font-mono text-rose-400 p-2.5 border border-rose-950/20 bg-rose-950/5 text-center">
-                        No standard slots open for this date.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto pr-1">
-                        {manualSlots.map((slot) => {
-                          const timeStr = new Date(slot.time).toLocaleTimeString("en-IE", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          });
-                          const isSelected = selectedManualSlot === slot.time;
-                          return (
-                            <button
-                              key={slot.time}
-                              type="button"
-                              onClick={() => setSelectedManualSlot(slot.time)}
-                              className={`p-2 font-mono text-[10px] text-center border transition-colors ${
-                                isSelected
-                                  ? "bg-[color:var(--ember)] border-[color:var(--ember)] text-[color:var(--ember-foreground)] font-bold"
-                                  : "border-[color:var(--hairline-dark)] hover:border-white text-white bg-black/25"
-                              }`}
-                              style={{ borderRadius: 2 }}
-                            >
-                              {timeStr}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    <input
+                      type="text"
+                      required
+                      value={manualName}
+                      onChange={(e) => setManualName(e.target.value)}
+                      placeholder="Emma Byrne"
+                      className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors"
+                      style={{ borderRadius: 3 }}
+                    />
                   </div>
-                )}
+
+                  {/* Email */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                      placeholder="emma.byrne@gmail.com"
+                      className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors"
+                      style={{ borderRadius: 3 }}
+                    />
+                  </div>
+
+                  {/* Phone */}
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={manualPhone}
+                      onChange={(e) => setManualPhone(e.target.value)}
+                      placeholder="+353871234567"
+                      className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors"
+                      style={{ borderRadius: 3 }}
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Form Footer Actions */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+              {/* Section: Intake Questions */}
+              <div>
+                <p className="text-[9px] font-mono uppercase text-[color:var(--ember)] tracking-widest mb-3 border-b border-[color:var(--ember)]/10 pb-1.5">
+                  Intake Questions
+                </p>
+                <div className="space-y-4">
+                  {/* Reason for Visit — multiselect checkboxes */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Reason for Visit *
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {REASON_FOR_VISIT_OPTIONS.map((reason) => {
+                        const isChecked = manualReasonForVisit.includes(reason);
+                        return (
+                          <button
+                            key={reason}
+                            type="button"
+                            onClick={() => toggleReasonForVisit(reason)}
+                            className={`flex items-center gap-1.5 px-2 py-1.5 border text-left text-[9px] font-mono uppercase transition-colors ${
+                              isChecked
+                                ? "border-[color:var(--ember)] text-[color:var(--ember)] bg-[color:var(--ember)]/10"
+                                : "border-[color:var(--hairline-dark)] text-[color:var(--muted-on-dark)] hover:border-white/30 hover:text-white"
+                            }`}
+                            style={{ borderRadius: 2 }}
+                          >
+                            <CheckSquare
+                              className={`h-3 w-3 flex-shrink-0 ${isChecked ? "text-[color:var(--ember)]" : "opacity-30"}`}
+                            />
+                            {reason}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* How long have you had this issue */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      How long have you had this issue? *
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {ISSUE_DURATION_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setManualIssueDuration(opt)}
+                          className={`px-3 py-1.5 border text-[10px] font-mono uppercase transition-colors ${
+                            manualIssueDuration === opt
+                              ? "border-[color:var(--ember)] text-[color:var(--ember)] bg-[color:var(--ember)]/10"
+                              : "border-[color:var(--hairline-dark)] text-[color:var(--muted-on-dark)] hover:border-white/30 hover:text-white"
+                          }`}
+                          style={{ borderRadius: 2 }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Seen physiotherapist before */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Have you seen a physiotherapist for this before? *
+                    </label>
+                    <div className="flex gap-2">
+                      {SEEN_PHYSIO_OPTIONS.map((opt) => (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => setManualSeenPhysio(opt)}
+                          className={`flex-1 py-1.5 border text-[10px] font-mono uppercase transition-colors ${
+                            manualSeenPhysio === opt
+                              ? "border-[color:var(--ember)] text-[color:var(--ember)] bg-[color:var(--ember)]/10"
+                              : "border-[color:var(--hairline-dark)] text-[color:var(--muted-on-dark)] hover:border-white/30 hover:text-white"
+                          }`}
+                          style={{ borderRadius: 2 }}
+                        >
+                          {opt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Insurance / Payment method */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Insurance / Payment Method *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={manualInsuranceMethod}
+                      onChange={(e) => setManualInsuranceMethod(e.target.value)}
+                      placeholder='e.g., "Private pay", "VHI", "Laya Healthcare"...'
+                      className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors"
+                      style={{ borderRadius: 3 }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section: Date & Time */}
+              <div>
+                <p className="text-[9px] font-mono uppercase text-[color:var(--ember)] tracking-widest mb-3 border-b border-[color:var(--ember)]/10 pb-1.5">
+                  Appointment Slot
+                </p>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
+                      Appointment Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={new Date().toISOString().split("T")[0]}
+                      value={manualDate}
+                      onChange={(e) => {
+                        setManualDate(e.target.value);
+                        setSelectedManualSlot(null);
+                        setManualSlots([]);
+                      }}
+                      className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors"
+                      style={{ borderRadius: 3 }}
+                    />
+                  </div>
+
+                  {manualDate && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider block">
+                        Choose Time Slot *
+                      </label>
+                      {loadingManualSlots ? (
+                        <div className="h-16 flex items-center justify-center text-xs font-mono text-[color:var(--muted-on-dark)] animate-pulse">
+                          Scanning available slots...
+                        </div>
+                      ) : manualSlots.length === 0 ? (
+                        <p className="text-xs font-mono text-rose-400 p-2.5 border border-rose-950/20 bg-rose-950/5 text-center">
+                          No available slots found for this date.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-4 gap-2 max-h-36 overflow-y-auto pr-1">
+                          {manualSlots.map((slot) => {
+                            const timeStr = new Date(slot.time).toLocaleTimeString("en-IE", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            });
+                            const isSelected = selectedManualSlot === slot.time;
+                            return (
+                              <button
+                                key={slot.time}
+                                type="button"
+                                onClick={() => setSelectedManualSlot(slot.time)}
+                                className={`p-2 font-mono text-[10px] text-center border transition-colors ${
+                                  isSelected
+                                    ? "bg-[color:var(--ember)] border-[color:var(--ember)] text-[color:var(--ember-foreground)] font-bold"
+                                    : "border-[color:var(--hairline-dark)] hover:border-white text-white bg-black/25"
+                                }`}
+                                style={{ borderRadius: 2 }}
+                              >
+                                {timeStr}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Form Footer */}
+              <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
                 <button
                   type="button"
                   onClick={() => {
                     setManualBookingOpen(false);
-                    setManualDate("");
-                    setSelectedManualSlot(null);
+                    resetManualForm();
                   }}
                   className="px-4 py-2 border border-white/10 hover:border-white/20 text-xs font-mono uppercase text-[color:var(--muted-on-dark)]"
                   style={{ borderRadius: 3 }}
@@ -944,7 +1210,7 @@ export function BookingsManagement() {
                 <button
                   type="submit"
                   disabled={manualBookingInProgress || !selectedManualSlot}
-                  className="px-4 py-2 bg-[color:var(--ember)] hover:bg-[color:var(--ember)]/90 text-[color:var(--ember-foreground)] font-mono text-xs uppercase font-semibold disabled:opacity-50"
+                  className="px-4 py-2 bg-[color:var(--ember)] hover:bg-[color:var(--ember)]/90 text-[color:var(--ember-foreground)] font-mono text-xs uppercase font-semibold disabled:opacity-50 transition-colors"
                   style={{ borderRadius: 3 }}
                 >
                   {manualBookingInProgress ? "Scheduling..." : "Schedule Appointment"}

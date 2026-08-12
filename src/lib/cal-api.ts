@@ -29,16 +29,22 @@ export interface CalBooking {
 }
 
 /**
- * Cal.com v2 API uses "accepted" for confirmed upcoming bookings.
- * Normalise to our internal status values used by the UI.
+ * Cal.com v2 API uses "accepted" for ALL non-cancelled bookings, even past ones.
+ * We derive the real status by comparing start time against now.
  */
-function normalizeBookingStatus(raw?: string): CalBooking["status"] {
+function normalizeBookingStatus(raw?: string, startTime?: string): CalBooking["status"] {
   const s = raw?.toLowerCase() ?? "";
-  if (s === "accepted" || s === "upcoming") return "upcoming";
   if (s === "cancelled" || s === "canceled") return "cancelled";
   if (s === "rejected") return "rejected";
+  // For accepted/upcoming: check if start time is in the past
+  if (startTime) {
+    const start = new Date(startTime);
+    if (!isNaN(start.getTime()) && start < new Date()) {
+      return "past";
+    }
+  }
+  if (s === "accepted" || s === "upcoming") return "upcoming";
   if (s === "past" || s === "ended") return "past";
-  // Default: treat unknown as upcoming
   return "upcoming";
 }
 
@@ -265,9 +271,11 @@ export const createCalBooking = createServerFn({ method: "POST" })
       name: string;
       email: string;
       phoneNumber: string;
-      notes?: string;
-      responses?: Record<string, any>;
-      eventTypeSlug?: string; // made optional/customizable
+      // Real Cal.com intake form fields (Initial Assessment — Stride Physiotherapy)
+      reasonForVisit: string[]; // multiselect
+      issueDuration: string;    // select
+      seenPhysioBefore: string; // radio Yes/No
+      insuranceMethod: string;  // text
     }) => d
   )
   .handler(async ({ data }) => {
@@ -278,22 +286,28 @@ export const createCalBooking = createServerFn({ method: "POST" })
 
     const payload = {
       start: data.start,
-      eventTypeSlug: data.eventTypeSlug || "1h",
+      // The only real public event type slug on this Cal.com account
+      eventTypeSlug: "1h",
       username: "endi-b3omc8",
       attendee: {
         name: data.name,
         email: data.email,
         phoneNumber: data.phoneNumber,
-        timeZone: "Europe/Budapest",
+        timeZone: "Europe/Dublin",
         language: "en",
       },
-      bookingFieldsResponses: data.responses || {},
-      metadata: {
-        notes: data.notes,
+      bookingFieldsResponses: {
+        name: data.name,
+        email: data.email,
+        attendeePhoneNumber: data.phoneNumber,
+        "Reason-for-visit": data.reasonForVisit,
+        "How-long-have-you-had-this-issue": data.issueDuration,
+        "Have-you-seen-a-physiotherapist-for-this-before": data.seenPhysioBefore,
+        "Insurance-payment-method": data.insuranceMethod,
       },
     };
 
-    console.log("PAYLOAD OUT:", JSON.stringify(payload, null, 2));
+    console.log("[cal-api] CREATE BOOKING PAYLOAD:", JSON.stringify(payload, null, 2));
 
     const response = await fetch(`${CAL_API_URL}/bookings`, {
       method: "POST",
@@ -307,7 +321,20 @@ export const createCalBooking = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Failed to create booking: ${errorText}`);
+      console.error("[cal-api] Create booking failed:", errorText);
+      try {
+        const parsed = JSON.parse(errorText);
+        const errMsg = parsed.error?.message || parsed.message || "";
+        if (errMsg.includes("attendeePhoneNumber}invalid_number") || errMsg.includes("invalid_number")) {
+          throw new Error("The phone number provided is invalid. Please enter a valid phone number with the correct format and length for the country code (e.g., +353871234567).");
+        }
+        throw new Error(errMsg || `API Error: ${response.statusText}`);
+      } catch (e: any) {
+        if (e.message && !e.message.includes("Unexpected token") && !e.message.includes("JSON")) {
+          throw e;
+        }
+        throw new Error(`Failed to create booking: ${errorText}`);
+      }
     }
 
     const json = await response.json();
@@ -362,29 +389,34 @@ export const getCalBookingsList = createServerFn({ method: "GET" })
 
       // Map Cal.com API structure to our simplified CalBooking interface
       // Cal.com v2 uses `uid` as the unique identifier for mutations
-      const mappedBookings: CalBooking[] = rawBookings.map((b) => ({
-        id: b.uid || b.id?.toString(),
-        uid: b.uid || b.id?.toString(),
-        startTime: b.start || b.startTime,
-        endTime: b.end || b.endTime,
-        title: b.title || `Session`,
-        description: b.description || "",
-        // Normalize status: Cal.com v2 uses 'accepted' for confirmed upcoming bookings
-        status: normalizeBookingStatus(b.status),
-        attendees: (b.attendees || []).map((att: any) => ({
-          name: att.name,
-          email: att.email,
-          phoneNumber: att.phoneNumber || att.phone || "",
-          timeZone: att.timeZone || "",
-        })),
-        responses: b.bookingFieldsResponses || b.responses || {},
-        eventType: b.eventType ? {
-          id: b.eventType.id,
-          title: b.eventType.title,
-          slug: b.eventType.slug,
-        } : undefined,
-        cancellationReason: b.cancellationReason || "",
-      }));
+      // IMPORTANT: Cal.com returns 'accepted' for ALL non-cancelled bookings, even past ones.
+      // We derive the real status by comparing `start` against the current time.
+      const mappedBookings: CalBooking[] = rawBookings.map((b) => {
+        const startTime = b.start || b.startTime;
+        return {
+          id: b.uid || b.id?.toString(),
+          uid: b.uid || b.id?.toString(),
+          startTime,
+          endTime: b.end || b.endTime,
+          title: b.title || `Session`,
+          description: b.description || "",
+          // Pass startTime so normalizer can detect past bookings
+          status: normalizeBookingStatus(b.status, startTime),
+          attendees: (b.attendees || []).map((att: any) => ({
+            name: att.name,
+            email: att.email,
+            phoneNumber: att.phoneNumber || att.phone || "",
+            timeZone: att.timeZone || "",
+          })),
+          responses: b.bookingFieldsResponses || b.responses || {},
+          eventType: b.eventType ? {
+            id: b.eventType.id,
+            title: b.eventType.title || "Initial Assessment — Stride Physiotherapy",
+            slug: b.eventType.slug,
+          } : undefined,
+          cancellationReason: b.cancellationReason || "",
+        };
+      });
 
       console.log(`[cal-api] Mapped ${mappedBookings.length} bookings.`);
 
