@@ -332,3 +332,111 @@ We will create a new view: [BookingsManagement.tsx](file:///d:/Applications/Anti
   - [ ] Form interface mapping name, email, phone, notes, and slot selector.
   - [ ] Submit payload to `createManualCalBooking` API.
 
+---
+
+## 9. Calendar Sync & Master Schedule Tab
+
+This section details the plan for building the **Calendar Sync & Master Schedule** tab within the `/admin` workspace. It provides the front-end layout, API mappings, design specifications, and interactivity guidelines for the calendar view and Google Calendar/Cal.com sync.
+
+### 9.1 Technical Architecture & API Actions
+To support individual therapist availability, booked slots, and Google Calendar sync statuses, we will extend `src/lib/cal-api.ts` with Server Functions to fetch sync connections and therapist schedules.
+
+1. **Fetch Therapist Calendar Connections (`getTherapistSyncStatuses`)**:
+   - **Method:** `GET`
+   - **Return Value:** An array of sync states for each therapist, showing active feeds (Google Calendar, Cal.com, Outlook), connection status (Connected, Sync Error, Authenticating), and last sync time.
+   - **Mock Fallback Data:** Local array matching the active therapists at STRIDE.
+
+2. **Fetch Therapist Schedules and Bookings (`getMasterScheduleEvents`)**:
+   - **Method:** `GET`
+   - **Inputs:** `startDate` (ISO-8601), `endDate` (ISO-8601), optional filters for `therapistId` and `serviceType`.
+   - **Return Value:** A list of calendar events containing both **booked appointments** (with client details) and **unavailable/blocked time slots** synced from external Google Calendar feeds (e.g., personal appointments, clinic holidays).
+
+3. **Force Refresh Calendar Sync (`triggerManualCalendarSync`)**:
+   - **Method:** `POST`
+   - **Inputs:** `therapistId` (string).
+   - **Return Value:** Success status, timestamp of completion.
+
+---
+
+### 9.2 Frontend UI Component & Calendar Views
+We will create a new view: [CalendarTab.tsx](file:///d:/Applications/AntigravityFiles/STRIDE%20Physiotherapy/src/components/admin/CalendarTab.tsx) rendered conditionally in the `AdminShell` when the **Calendar** navigation tab is selected.
+
+#### 1. Filter & Connection Status Header
+* **View Selector:** Grouped buttons for `Day`, `Week`, and `Month` views.
+* **Therapist Filter Selector:** Multiselect dropdown to view specific therapist schedules side-by-side or layered.
+* **Sync Feed Pills:** A horizontal strip displaying the connection status of active calendar integrations (e.g., `Emma B. (Google) Connected` with a green status indicator, `John D. Sync Alert` with a pulsing orange warning).
+
+#### 2. Interactive Day, Week, and Month Views
+* **Day View:** 
+  - Hourly rows (08:00 to 20:00).
+  - Multi-column layout if multiple therapists are selected, showing their schedules side-by-side.
+  - Hover states showing a preview tooltip with patient name and treatment.
+* **Week View:**
+  - Standard 7-day grid display (columns).
+  - Time increments matching Day view.
+  - Appointments positioned absolutely based on start/end times.
+* **Month View:**
+  - 35 or 42 grid cells.
+  - Days containing events display small indicators/pills with start times and color-coded tags.
+  - "More (+3)" button for days with overflowing schedules.
+
+#### 3. Visual Color Coding & Availability Tokens
+To differentiate physiotherapists or treatment categories, schedule events will be color-coded using the STRIDE design palette:
+* **Initial Assessments:** `--ember` background (`rgba(255, 90, 54, 0.15)`) with an `--ember` solid left border and neutral text.
+* **Sports Rehab:** `--slate` background (`rgba(124, 139, 135, 0.15)`) with a `--slate` solid left border.
+* **Manual Therapy:** Muted Gold background (`rgba(193, 162, 126, 0.15)`) with a gold left border.
+* **Blocked Slots / External Google Calendar Sync Blocks:** Dark charcoal background (`var(--ink)`) with diagonal stripe pattern (created with a CSS `linear-gradient` pattern) and a subtle muted border to distinguish unavailability from clinic bookings.
+
+---
+
+### 9.3 Slide-Over Drawer (Patient Detail & Quick Actions)
+When an appointment block is clicked, a slide-over drawer will emerge from the right edge of the screen.
+
+* **UI Specifications:**
+  - **Wrapper:** Fixed panel covering the full height of the viewport, with a width of `w-full max-w-md md:max-w-lg` and custom glassmorphism styling matching the theme.
+  - **Backdrop Blur:** A semi-transparent overlay (`bg-black/60 backdrop-blur-sm`) covering the rest of the screen.
+  - **Animation:** CSS transition sliding from `translate-x-full` to `translate-x-0` using Framer Motion or Tailwind transitions.
+  - **Header:** Patient name, selected treatment type, dynamic status badge, and close button (`X`).
+  - **Content Sections:**
+    - *Appointment Details:* Date, Time range, Assigned Therapist, Clinic Room.
+    - *Patient Contact:* Email, Phone (with quick copy button).
+    - *Intake Responses:* Selected reason for visit, issue duration, and intake notes.
+    - *Sync Information:* Cal.com link, external Google Calendar event ID reference.
+  - **Footer Actions:**
+    - "Reschedule Appointment": Opens the rescheduling selector.
+    - "Cancel Appointment": Opens the cancellation reason modal.
+    - "Edit Details": Quick links to update phone or note responses.
+
+---
+
+### 9.4 Implementation Checklist & Timeline
+
+#### Phase 1: Route Setup & Sidebar Activation
+- [ ] Update [AdminShell.tsx](file:///d:/Applications/AntigravityFiles/STRIDE%20Physiotherapy/src/components/admin/AdminShell.tsx):
+  - [ ] Set "Calendar" menu item status to `"Active"` (remove `"Coming Soon"` badge).
+  - [ ] Configure `activeTab === "Calendar"` handler to import and mount `<CalendarTab />`.
+
+#### Phase 2: Mock & API Integrations
+- [ ] Extend [cal-api.ts](file:///d:/Applications/AntigravityFiles/STRIDE%20Physiotherapy/src/lib/cal-api.ts):
+  - [ ] Implement `getTherapistSyncStatuses` server function returning mock connection details.
+  - [ ] Implement `getMasterScheduleEvents` mapping database/Cal.com slots and Google Calendar unavailability blocks.
+  - [ ] Export type definitions for `CalendarEvent` and `TherapistSyncStatus`.
+
+#### Phase 3: Build Calendar Views Layout
+- [ ] Create component file [CalendarTab.tsx](file:///d:/Applications/AntigravityFiles/STRIDE%20Physiotherapy/src/components/admin/CalendarTab.tsx).
+- [ ] Build layout wrapper containing connection status pills, views switcher, and therapist filter selectors.
+- [ ] Code the **Month View** layout (interactive grid, date calculation, event indicators).
+- [ ] Code the **Week View** layout (hourly columns, event position calculations).
+- [ ] Code the **Day View** layout (side-by-side therapist timeline columns).
+
+#### Phase 4: Slide-over Drawer & Interactivity
+- [ ] Implement Slide-over Drawer panel with backdrop blur and smooth sliding animation.
+- [ ] Wire calendar event click triggers to open drawer and set current appointment state.
+- [ ] Integrate quick action bindings in drawer (Cancel/Reschedule buttons triggering existing actions in `BookingsManagement` or `cal-api`).
+- [ ] Implement color coding and diagonal stripe backgrounds for therapist availability blocks and blocked slots.
+
+#### Phase 5: Verification & Quality Assurance
+- [ ] Run typescript checker `npm run build` to verify typings.
+- [ ] Verify responsive behavior of Month, Week, and Day views on mobile viewports (collapsing navigation, grid scrolling).
+- [ ] Check accessibility ratios of color-coded items against dark background.
+

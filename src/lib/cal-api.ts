@@ -542,3 +542,277 @@ function filterMockBookings(status?: string, search?: string) {
 
   return filtered;
 }
+
+// --- CALENDAR SYNC & MASTER SCHEDULE ACTIONS ---
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  type: "booking" | "blocked";
+  therapistId: string;
+  therapistName: string;
+  treatmentType?: string; // "Initial Assessment", "Sports Rehab", "Manual Therapy", "Dry Needling"
+  patientName?: string;
+  patientEmail?: string;
+  patientPhone?: string;
+  status?: "upcoming" | "past" | "cancelled" | "In Progress" | "Completed";
+  notes?: string;
+  syncSource?: "google" | "cal.com" | "outlook";
+}
+
+export interface TherapistSyncStatus {
+  therapistId: string;
+  therapistName: string;
+  provider: "Google Calendar" | "Cal.com" | "Outlook";
+  status: "Connected" | "Sync Error" | "Authenticating";
+  lastSync: string;
+  email: string;
+}
+
+// Fallback mock sync statuses
+const mockSyncStatuses: TherapistSyncStatus[] = [
+  {
+    therapistId: "therapist-1",
+    therapistName: "Conor M.",
+    provider: "Google Calendar",
+    status: "Connected",
+    lastSync: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 mins ago
+    email: "conor.m@stridephysio.ie",
+  },
+  {
+    therapistId: "therapist-2",
+    therapistName: "Maeve O'B.",
+    provider: "Google Calendar",
+    status: "Connected",
+    lastSync: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
+    email: "maeve.ob@stridephysio.ie",
+  },
+  {
+    therapistId: "therapist-1",
+    therapistName: "Conor M.",
+    provider: "Cal.com",
+    status: "Connected",
+    lastSync: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+    email: "conor.m@stridephysio.ie",
+  },
+  {
+    therapistId: "therapist-2",
+    therapistName: "Maeve O'B.",
+    provider: "Cal.com",
+    status: "Sync Error",
+    lastSync: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+    email: "maeve.ob@stridephysio.ie",
+  }
+];
+
+// Fallback mock master events
+const getMockMasterEvents = (): CalendarEvent[] => {
+  const today = new Date();
+  
+  // Helper to format ISO dates relative to today
+  const getRelativeDate = (days: number, hours: number, minutes: number = 0) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + days);
+    d.setHours(hours, minutes, 0, 0);
+    return d.toISOString();
+  };
+
+  return [
+    // Today's Bookings
+    {
+      id: "master-1",
+      title: "Initial Assessment - Sarah Jenkins",
+      start: getRelativeDate(0, 8, 0),
+      end: getRelativeDate(0, 8, 45),
+      type: "booking",
+      therapistId: "therapist-1",
+      therapistName: "Conor M.",
+      treatmentType: "Initial Assessment",
+      patientName: "Sarah Jenkins",
+      patientEmail: "sarah.j@outlook.com",
+      patientPhone: "+353851122334",
+      status: "Completed",
+      notes: "Neck stiffness relief. Prefers mild pressure trigger point release.",
+      syncSource: "cal.com",
+    },
+    {
+      id: "master-2",
+      title: "Sports Rehab - David O'Connor",
+      start: getRelativeDate(0, 9, 30),
+      end: getRelativeDate(0, 10, 15),
+      type: "booking",
+      therapistId: "therapist-2",
+      therapistName: "Maeve O'B.",
+      treatmentType: "Sports Rehab",
+      patientName: "David O'Connor",
+      patientEmail: "david.oc@example.com",
+      patientPhone: "+353869876543",
+      status: "Completed",
+      notes: "ACL post-op exercises checkup. Stitches removed last week.",
+      syncSource: "cal.com",
+    },
+    {
+      id: "master-3",
+      title: "Manual Therapy - Emma Byrne",
+      start: getRelativeDate(0, 11, 0),
+      end: getRelativeDate(0, 11, 45),
+      type: "booking",
+      therapistId: "therapist-1",
+      therapistName: "Conor M.",
+      treatmentType: "Manual Therapy",
+      patientName: "Emma Byrne",
+      patientEmail: "emma.byrne@gmail.com",
+      patientPhone: "+353871234567",
+      status: "In Progress",
+      notes: "Feeling continuous dull pain in lower lumbar area. Aggravated after running.",
+      syncSource: "cal.com",
+    },
+    {
+      id: "master-4",
+      title: "Initial Assessment - James Murphy",
+      start: getRelativeDate(0, 14, 0),
+      end: getRelativeDate(0, 14, 45),
+      type: "booking",
+      therapistId: "therapist-2",
+      therapistName: "Maeve O'B.",
+      treatmentType: "Initial Assessment",
+      patientName: "James Murphy",
+      patientEmail: "james.murphy@gmail.com",
+      patientPhone: "+353862233445",
+      status: "upcoming",
+      notes: "First time consultation regarding acute shoulder impingement.",
+      syncSource: "cal.com",
+    },
+    
+    // Google Calendar Sync Blocks (Therapist Availability overrides / Personal Blocks)
+    {
+      id: "block-1",
+      title: "Personal Appointment (Google Sync)",
+      start: getRelativeDate(0, 12, 0),
+      end: getRelativeDate(0, 13, 30),
+      type: "blocked",
+      therapistId: "therapist-1",
+      therapistName: "Conor M.",
+      syncSource: "google",
+    },
+    {
+      id: "block-2",
+      title: "Lunch Block (Google Sync)",
+      start: getRelativeDate(0, 13, 0),
+      end: getRelativeDate(0, 14, 0),
+      type: "blocked",
+      therapistId: "therapist-2",
+      therapistName: "Maeve O'B.",
+      syncSource: "google",
+    },
+    {
+      id: "block-3",
+      title: "Dentist Appointment (Google Sync)",
+      start: getRelativeDate(0, 16, 0),
+      end: getRelativeDate(0, 17, 30),
+      type: "blocked",
+      therapistId: "therapist-2",
+      therapistName: "Maeve O'B.",
+      syncSource: "google",
+    },
+
+    // Tomorrow's Events
+    {
+      id: "master-5",
+      title: "Dry Needling - Richard Kelly",
+      start: getRelativeDate(1, 10, 0),
+      end: getRelativeDate(1, 10, 45),
+      type: "booking",
+      therapistId: "therapist-1",
+      therapistName: "Conor M.",
+      treatmentType: "Dry Needling",
+      patientName: "Richard Kelly",
+      patientEmail: "r.kelly@gmail.com",
+      patientPhone: "+353894455667",
+      status: "upcoming",
+      notes: "Tennis elbow chronic pain treatment.",
+      syncSource: "cal.com",
+    },
+    {
+      id: "block-4",
+      title: "Clinical Training Session",
+      start: getRelativeDate(1, 12, 0),
+      end: getRelativeDate(1, 15, 0),
+      type: "blocked",
+      therapistId: "therapist-1",
+      therapistName: "Conor M.",
+      syncSource: "google",
+    },
+    {
+      id: "block-5",
+      title: "Clinical Training Session",
+      start: getRelativeDate(1, 12, 0),
+      end: getRelativeDate(1, 15, 0),
+      type: "blocked",
+      therapistId: "therapist-2",
+      therapistName: "Maeve O'B.",
+      syncSource: "google",
+    },
+
+    // Next week checkups
+    {
+      id: "master-6",
+      title: "Sports Rehab - Clara Higgins",
+      start: getRelativeDate(3, 11, 0),
+      end: getRelativeDate(3, 11, 45),
+      type: "booking",
+      therapistId: "therapist-2",
+      therapistName: "Maeve O'B.",
+      treatmentType: "Sports Rehab",
+      patientName: "Clara Higgins",
+      patientEmail: "clara.h@gmail.com",
+      patientPhone: "+353879988776",
+      status: "upcoming",
+      notes: "Post-ankle sprain exercises validation.",
+      syncSource: "cal.com",
+    }
+  ];
+};
+
+/**
+ * Fetch calendar sync statuses for therapists
+ */
+export const getTherapistSyncStatuses = createServerFn({ method: "GET" })
+  .handler(async () => {
+    // Normally we would query a Supabase table tracking integrations.
+    // For now, return mock sync statuses aligning with Conor and Maeve.
+    return mockSyncStatuses;
+  });
+
+/**
+ * Fetch unified master schedule events
+ */
+export const getMasterScheduleEvents = createServerFn({ method: "GET" })
+  .validator((d: { startDate: string; endDate: string; therapistId?: string }) => d)
+  .handler(async ({ data }) => {
+    // In production, we'd query Supabase bookings, fetch active Cal.com bookings, 
+    // and query Google Calendar slots using the authenticated sync providers.
+    let events = getMockMasterEvents();
+
+    if (data.therapistId && data.therapistId !== "all") {
+      events = events.filter(e => e.therapistId === data.therapistId);
+    }
+
+    return events;
+  });
+
+/**
+ * Trigger manual external calendar sync sync refresh
+ */
+export const triggerManualCalendarSync = createServerFn({ method: "POST" })
+  .validator((d: { therapistId: string }) => d)
+  .handler(async ({ data }) => {
+    console.log(`Triggering manual sync for therapist: ${data.therapistId}`);
+    return {
+      success: true,
+      lastSync: new Date().toISOString(),
+    };
+  });
+

@@ -16,6 +16,7 @@ import {
 import { adminLogout } from "@/lib/admin.server";
 import { supabase } from "@/lib/supabase";
 import { BookingsManagement } from "./BookingsManagement";
+import { CalendarTab } from "./CalendarTab";
 
 interface AdminShellProps {
   userEmail: string;
@@ -42,12 +43,13 @@ export function AdminShell({ userEmail, onLogout, children }: AdminShellProps) {
   const navItems = [
     { name: "Dashboard", icon: LayoutDashboard, status: "Active" },
     { name: "Bookings Management", icon: CalendarCheck, status: "Active" },
-    { name: "Calendar", icon: Calendar, status: "Coming Soon" },
+    { name: "Calendar", icon: Calendar, status: "Active" },
     { name: "Patient Records", icon: Users, status: "Coming Soon" },
     { name: "Therapists & Schedule", icon: UserCog, status: "Coming Soon" },
     { name: "Services & Pricing", icon: Tag, status: "Coming Soon" },
     { name: "Settings & Audit Logs", icon: Settings, status: "Coming Soon" },
   ];
+
 
   return (
     <div className="flex min-h-screen bg-black text-white" data-admin>
@@ -185,6 +187,8 @@ export function AdminShell({ userEmail, onLogout, children }: AdminShellProps) {
             children
           ) : activeTab === "Bookings Management" ? (
             <BookingsManagement />
+          ) : activeTab === "Calendar" ? (
+            <CalendarTab />
           ) : (
             <div className="p-8 text-center max-w-md mx-auto mt-20">
               <h2 className="text-xl font-display text-white mb-2">Coming Soon</h2>

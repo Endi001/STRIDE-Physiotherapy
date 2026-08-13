@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   Search,
   Mail,
   Phone,
@@ -22,6 +22,9 @@ import {
   createCalBooking,
   CalBooking,
 } from "@/lib/cal-api";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 // Real Cal.com booking form options for "Initial Assessment — Stride Physiotherapy"
 const REASON_FOR_VISIT_OPTIONS = [
@@ -854,17 +857,61 @@ export function BookingsManagement() {
               <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
                 Select New Date
               </label>
-              <input
-                type="date"
-                min={new Date().toISOString().split("T")[0]}
-                value={rescheduleDate}
-                onChange={(e) => {
-                  setRescheduleDate(e.target.value);
-                  setSelectedRescheduleSlot(null);
-                }}
-                className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none"
-                style={{ borderRadius: 3 }}
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors text-left"
+                    style={{ borderRadius: 3 }}
+                  >
+                    <span>
+                      {rescheduleDate
+                        ? format(
+                            (() => {
+                              const [y, m, d] = rescheduleDate.split("-").map(Number);
+                              return new Date(y, m - 1, d);
+                            })(),
+                            "PPP"
+                          )
+                        : "SELECT NEW DATE"}
+                    </span>
+                    <CalendarIcon className="h-4 w-4 text-[color:var(--muted-on-dark)]" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="w-auto p-0 bg-[#101113] border-[#3a3632] text-white [--color-popover:#101113] [--color-popover-foreground:#F5F3EF] [--color-border:#3a3632] [--color-accent:#FF5A36] [--color-accent-foreground:#4A1B0C] [--color-primary:#FF5A36] [--color-primary-foreground:#4A1B0C]"
+                  align="start"
+                >
+                  <CalendarComponent
+                    mode="single"
+                    selected={
+                      rescheduleDate
+                        ? (() => {
+                            const [y, m, d] = rescheduleDate.split("-").map(Number);
+                            return new Date(y, m - 1, d);
+                          })()
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      if (date) {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, "0");
+                        const day = String(date.getDate()).padStart(2, "0");
+                        setRescheduleDate(`${year}-${month}-${day}`);
+                      } else {
+                        setRescheduleDate("");
+                      }
+                      setSelectedRescheduleSlot(null);
+                    }}
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
+                    className="bg-[#101113] text-white border-[#3a3632]"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
 
             {rescheduleDate && (
@@ -1135,19 +1182,62 @@ export function BookingsManagement() {
                     <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] tracking-wider">
                       Appointment Date *
                     </label>
-                    <input
-                      type="date"
-                      required
-                      min={new Date().toISOString().split("T")[0]}
-                      value={manualDate}
-                      onChange={(e) => {
-                        setManualDate(e.target.value);
-                        setSelectedManualSlot(null);
-                        setManualSlots([]);
-                      }}
-                      className="w-full bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors"
-                      style={{ borderRadius: 3 }}
-                    />
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full flex items-center justify-between bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors text-left"
+                          style={{ borderRadius: 3 }}
+                        >
+                          <span>
+                            {manualDate
+                              ? format(
+                                  (() => {
+                                    const [y, m, d] = manualDate.split("-").map(Number);
+                                    return new Date(y, m - 1, d);
+                                  })(),
+                                  "PPP"
+                                )
+                              : "SELECT APPOINTMENT DATE"}
+                          </span>
+                          <CalendarIcon className="h-4 w-4 text-[color:var(--muted-on-dark)]" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-auto p-0 bg-[#101113] border-[#3a3632] text-white [--color-popover:#101113] [--color-popover-foreground:#F5F3EF] [--color-border:#3a3632] [--color-accent:#FF5A36] [--color-accent-foreground:#4A1B0C] [--color-primary:#FF5A36] [--color-primary-foreground:#4A1B0C]"
+                        align="start"
+                      >
+                        <CalendarComponent
+                          mode="single"
+                          selected={
+                            manualDate
+                              ? (() => {
+                                  const [y, m, d] = manualDate.split("-").map(Number);
+                                  return new Date(y, m - 1, d);
+                                })()
+                              : undefined
+                          }
+                          onSelect={(date) => {
+                            if (date) {
+                              const year = date.getFullYear();
+                              const month = String(date.getMonth() + 1).padStart(2, "0");
+                              const day = String(date.getDate()).padStart(2, "0");
+                              setManualDate(`${year}-${month}-${day}`);
+                            } else {
+                              setManualDate("");
+                            }
+                            setSelectedManualSlot(null);
+                            setManualSlots([]);
+                          }}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            return date < today;
+                          }}
+                          className="bg-[#101113] text-white border-[#3a3632]"
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
 
                   {manualDate && (
