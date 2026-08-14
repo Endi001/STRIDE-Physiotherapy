@@ -76,14 +76,66 @@ function buildPeakHoursData(bookings: CalBooking[]) {
   return Object.entries(slots).map(([hour, count]) => ({ hour, bookings: count, capacityPercent: Math.round((count / max) * 100) }));
 }
 
+function getReasonsForVisit(b: CalBooking): string[] {
+  const reasonsRaw = b.responses?.["Reason-for-visit"];
+  if (reasonsRaw) {
+    if (Array.isArray(reasonsRaw)) return reasonsRaw;
+    if (typeof reasonsRaw === "string" && reasonsRaw) return [reasonsRaw];
+  }
+  
+  // Try to infer from notes/title
+  const textToScan = `${b.title} ${b.description || ""} ${b.responses?.notes || ""}`.toLowerCase();
+  const inferred: string[] = [];
+  
+  if (textToScan.includes("back") || textToScan.includes("lumbar") || textToScan.includes("sciatica") || textToScan.includes("spine")) {
+    inferred.push("Back pain");
+  }
+  if (textToScan.includes("neck") || textToScan.includes("cervical") || textToScan.includes("whiplash")) {
+    inferred.push("Neck pain");
+  }
+  if (textToScan.includes("joint") || textToScan.includes("shoulder") || textToScan.includes("knee") || textToScan.includes("elbow") || textToScan.includes("ankle") || textToScan.includes("hip") || textToScan.includes("wrist")) {
+    inferred.push("Joint pain");
+  }
+  if (textToScan.includes("muscle") || textToScan.includes("strain") || textToScan.includes("spasm") || textToScan.includes("quad") || textToScan.includes("hamstring") || textToScan.includes("calf")) {
+    inferred.push("Muscle pain");
+  }
+  if (textToScan.includes("post-op") || textToScan.includes("surgery") || textToScan.includes("rehab") || textToScan.includes("rehabilitation") || textToScan.includes("post-operative")) {
+    inferred.push("Post-operative rehabilitation");
+  }
+  if (textToScan.includes("injury") || textToScan.includes("sprain") || textToScan.includes("tear") || textToScan.includes("fracture") || textToScan.includes("accident")) {
+    inferred.push("Injury recovery");
+  }
+  if (textToScan.includes("mobility") || textToScan.includes("stiff") || textToScan.includes("range of motion") || textToScan.includes("gait") || textToScan.includes("flexibility")) {
+    inferred.push("Mobility problems");
+  }
+  if (textToScan.includes("chronic") || textToScan.includes("persistent") || textToScan.includes("long-term")) {
+    inferred.push("Chronic pain");
+  }
+  if (textToScan.includes("sports") || textToScan.includes("running") || textToScan.includes("athletic") || textToScan.includes("football") || textToScan.includes("soccer") || textToScan.includes("tennis")) {
+    inferred.push("Sports injuries");
+  }
+  
+  if (inferred.length > 0) return inferred;
+  return ["Unspecified"];
+}
+
 function buildTreatmentData(bookings: CalBooking[]) {
   const counts: Record<string, number> = {};
   bookings.forEach((b) => {
-    const label = b.eventType?.title || b.title || "Other";
-    counts[label] = (counts[label] || 0) + 1;
+    const reasons = getReasonsForVisit(b);
+    reasons.forEach((r) => {
+      counts[r] = (counts[r] || 0) + 1;
+    });
   });
   const total = Object.values(counts).reduce((a, c) => a + c, 0) || 1;
-  return Object.entries(counts).sort(([, a], [, b]) => b - a).slice(0, 5).map(([name, count], i) => ({ name, value: Math.round((count / total) * 100), color: TREATMENT_COLORS[i % TREATMENT_COLORS.length] }));
+  return Object.entries(counts)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 5)
+    .map(([name, count], i) => ({
+      name,
+      value: Math.round((count / total) * 100),
+      color: TREATMENT_COLORS[i % TREATMENT_COLORS.length]
+    }));
 }
 
 function buildTodaySnapshot(bookings: CalBooking[]) {
@@ -387,12 +439,12 @@ export function AdminDashboard({ userEmail }: AdminDashboardProps) {
         {/* Treatment Distribution Donut */}
         <div className="xl:col-span-1 bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] p-6 flex flex-col justify-between" style={{ borderRadius: 4 }}>
           <div>
-            <h2 className="text-lg font-display tracking-tight text-white uppercase mb-1">Treatment Distribution</h2>
-            <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)] uppercase tracking-wider mb-6">Bookings breakdown by therapy category</p>
+            <h2 className="text-lg font-display tracking-tight text-white uppercase mb-1">Reasons for Visit</h2>
+            <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)] uppercase tracking-wider mb-6">Distribution of client symptoms & reasons for booking</p>
           </div>
           {treatmentData.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-48 text-[color:var(--muted-on-dark)] font-mono text-[10px] uppercase tracking-wider">
-              <AlertCircle className="h-8 w-8 mb-2 opacity-30" />No treatment data yet
+              <AlertCircle className="h-8 w-8 mb-2 opacity-30" />No symptoms data yet
             </div>
           ) : (
             <div className="relative flex justify-center items-center h-48 w-full">

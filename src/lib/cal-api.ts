@@ -69,6 +69,7 @@ const fallbackBookings: CalBooking[] = [
     responses: {
       notes: "Feeling continuous dull pain in lower lumbar area. Aggravated after running.",
       injuryHistory: "None.",
+      "Reason-for-visit": ["Back pain", "Sports injuries"],
     },
     eventType: {
       id: 1,
@@ -94,6 +95,7 @@ const fallbackBookings: CalBooking[] = [
     ],
     responses: {
       notes: "ACL post-op exercises checkup. Stitches removed last week.",
+      "Reason-for-visit": ["Post-operative rehabilitation", "Injury recovery"],
     },
     eventType: {
       id: 2,
@@ -119,6 +121,7 @@ const fallbackBookings: CalBooking[] = [
     ],
     responses: {
       notes: "Neck stiffness relief. Prefers mild pressure trigger point release.",
+      "Reason-for-visit": ["Neck pain", "Mobility problems"],
     },
     eventType: {
       id: 3,
@@ -141,6 +144,9 @@ const fallbackBookings: CalBooking[] = [
         phoneNumber: "+353894455667",
       },
     ],
+    responses: {
+      "Reason-for-visit": ["Joint pain", "Chronic pain"],
+    },
     cancellationReason: "Client requested rescheduling due to urgent business travel.",
     eventType: {
       id: 1,
@@ -271,11 +277,9 @@ export const createCalBooking = createServerFn({ method: "POST" })
       name: string;
       email: string;
       phoneNumber: string;
-      // Real Cal.com intake form fields (Initial Assessment — Stride Physiotherapy)
-      reasonForVisit: string[]; // multiselect
-      issueDuration: string;    // select
-      seenPhysioBefore: string; // radio Yes/No
-      insuranceMethod: string;  // text
+      notes?: string;
+      // All remaining custom booking field responses keyed by their Cal.com slug
+      responses?: Record<string, any>;
     }) => d
   )
   .handler(async ({ data }) => {
@@ -283,6 +287,15 @@ export const createCalBooking = createServerFn({ method: "POST" })
     if (!apiKey) {
       throw new Error("CAL_COM_API_KEY is not defined");
     }
+
+    // Merge standard fields + any extra custom responses into bookingFieldsResponses
+    const bookingFieldsResponses: Record<string, any> = {
+      name: data.name,
+      email: data.email,
+      attendeePhoneNumber: data.phoneNumber,
+      ...(data.notes ? { notes: data.notes } : {}),
+      ...(data.responses || {}),
+    };
 
     const payload = {
       start: data.start,
@@ -296,15 +309,7 @@ export const createCalBooking = createServerFn({ method: "POST" })
         timeZone: "Europe/Dublin",
         language: "en",
       },
-      bookingFieldsResponses: {
-        name: data.name,
-        email: data.email,
-        attendeePhoneNumber: data.phoneNumber,
-        "Reason-for-visit": data.reasonForVisit,
-        "How-long-have-you-had-this-issue": data.issueDuration,
-        "Have-you-seen-a-physiotherapist-for-this-before": data.seenPhysioBefore,
-        "Insurance-payment-method": data.insuranceMethod,
-      },
+      bookingFieldsResponses,
     };
 
     console.log("[cal-api] CREATE BOOKING PAYLOAD:", JSON.stringify(payload, null, 2));
@@ -620,36 +625,36 @@ const getMockMasterEvents = (): CalendarEvent[] => {
   };
 
   return [
-    // Today's Bookings
+    // Today's Bookings — all sessions are 60 minutes, exact-hour start times
     {
       id: "master-1",
       title: "Initial Assessment - Sarah Jenkins",
       start: getRelativeDate(0, 8, 0),
-      end: getRelativeDate(0, 8, 45),
+      end: getRelativeDate(0, 9, 0),
       type: "booking",
       therapistId: "therapist-1",
-      therapistName: "Conor M.",
+      therapistName: "",
       treatmentType: "Initial Assessment",
       patientName: "Sarah Jenkins",
       patientEmail: "sarah.j@outlook.com",
       patientPhone: "+353851122334",
-      status: "Completed",
+      status: "upcoming",
       notes: "Neck stiffness relief. Prefers mild pressure trigger point release.",
       syncSource: "cal.com",
     },
     {
       id: "master-2",
       title: "Sports Rehab - David O'Connor",
-      start: getRelativeDate(0, 9, 30),
-      end: getRelativeDate(0, 10, 15),
+      start: getRelativeDate(0, 10, 0),
+      end: getRelativeDate(0, 11, 0),
       type: "booking",
       therapistId: "therapist-2",
-      therapistName: "Maeve O'B.",
+      therapistName: "",
       treatmentType: "Sports Rehab",
       patientName: "David O'Connor",
       patientEmail: "david.oc@example.com",
       patientPhone: "+353869876543",
-      status: "Completed",
+      status: "upcoming",
       notes: "ACL post-op exercises checkup. Stitches removed last week.",
       syncSource: "cal.com",
     },
@@ -657,15 +662,15 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       id: "master-3",
       title: "Manual Therapy - Emma Byrne",
       start: getRelativeDate(0, 11, 0),
-      end: getRelativeDate(0, 11, 45),
+      end: getRelativeDate(0, 12, 0),
       type: "booking",
       therapistId: "therapist-1",
-      therapistName: "Conor M.",
+      therapistName: "",
       treatmentType: "Manual Therapy",
       patientName: "Emma Byrne",
       patientEmail: "emma.byrne@gmail.com",
       patientPhone: "+353871234567",
-      status: "In Progress",
+      status: "upcoming",
       notes: "Feeling continuous dull pain in lower lumbar area. Aggravated after running.",
       syncSource: "cal.com",
     },
@@ -673,10 +678,10 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       id: "master-4",
       title: "Initial Assessment - James Murphy",
       start: getRelativeDate(0, 14, 0),
-      end: getRelativeDate(0, 14, 45),
+      end: getRelativeDate(0, 15, 0),
       type: "booking",
       therapistId: "therapist-2",
-      therapistName: "Maeve O'B.",
+      therapistName: "",
       treatmentType: "Initial Assessment",
       patientName: "James Murphy",
       patientEmail: "james.murphy@gmail.com",
@@ -685,16 +690,16 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       notes: "First time consultation regarding acute shoulder impingement.",
       syncSource: "cal.com",
     },
-    
+
     // Google Calendar Sync Blocks (Therapist Availability overrides / Personal Blocks)
     {
       id: "block-1",
       title: "Personal Appointment (Google Sync)",
       start: getRelativeDate(0, 12, 0),
-      end: getRelativeDate(0, 13, 30),
+      end: getRelativeDate(0, 13, 0),
       type: "blocked",
       therapistId: "therapist-1",
-      therapistName: "Conor M.",
+      therapistName: "",
       syncSource: "google",
     },
     {
@@ -704,17 +709,17 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       end: getRelativeDate(0, 14, 0),
       type: "blocked",
       therapistId: "therapist-2",
-      therapistName: "Maeve O'B.",
+      therapistName: "",
       syncSource: "google",
     },
     {
       id: "block-3",
       title: "Dentist Appointment (Google Sync)",
       start: getRelativeDate(0, 16, 0),
-      end: getRelativeDate(0, 17, 30),
+      end: getRelativeDate(0, 17, 0),
       type: "blocked",
       therapistId: "therapist-2",
-      therapistName: "Maeve O'B.",
+      therapistName: "",
       syncSource: "google",
     },
 
@@ -723,10 +728,10 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       id: "master-5",
       title: "Dry Needling - Richard Kelly",
       start: getRelativeDate(1, 10, 0),
-      end: getRelativeDate(1, 10, 45),
+      end: getRelativeDate(1, 11, 0),
       type: "booking",
       therapistId: "therapist-1",
-      therapistName: "Conor M.",
+      therapistName: "",
       treatmentType: "Dry Needling",
       patientName: "Richard Kelly",
       patientEmail: "r.kelly@gmail.com",
@@ -742,7 +747,7 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       end: getRelativeDate(1, 15, 0),
       type: "blocked",
       therapistId: "therapist-1",
-      therapistName: "Conor M.",
+      therapistName: "",
       syncSource: "google",
     },
     {
@@ -752,7 +757,7 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       end: getRelativeDate(1, 15, 0),
       type: "blocked",
       therapistId: "therapist-2",
-      therapistName: "Maeve O'B.",
+      therapistName: "",
       syncSource: "google",
     },
 
@@ -761,10 +766,10 @@ const getMockMasterEvents = (): CalendarEvent[] => {
       id: "master-6",
       title: "Sports Rehab - Clara Higgins",
       start: getRelativeDate(3, 11, 0),
-      end: getRelativeDate(3, 11, 45),
+      end: getRelativeDate(3, 12, 0),
       type: "booking",
       therapistId: "therapist-2",
-      therapistName: "Maeve O'B.",
+      therapistName: "",
       treatmentType: "Sports Rehab",
       patientName: "Clara Higgins",
       patientEmail: "clara.h@gmail.com",
@@ -787,20 +792,109 @@ export const getTherapistSyncStatuses = createServerFn({ method: "GET" })
   });
 
 /**
- * Fetch unified master schedule events
+ * Fetch unified master schedule events.
+ * Attempts to fetch real upcoming bookings from Cal.com v2 API filtered by date range.
+ * Falls back to mock data if the API key is absent or the request fails.
  */
 export const getMasterScheduleEvents = createServerFn({ method: "GET" })
   .validator((d: { startDate: string; endDate: string; therapistId?: string }) => d)
   .handler(async ({ data }) => {
-    // In production, we'd query Supabase bookings, fetch active Cal.com bookings, 
-    // and query Google Calendar slots using the authenticated sync providers.
-    let events = getMockMasterEvents();
+    const apiKey = process.env.CAL_COM_API_KEY;
 
-    if (data.therapistId && data.therapistId !== "all") {
-      events = events.filter(e => e.therapistId === data.therapistId);
+    if (!apiKey) {
+      console.warn("[cal-api] CAL_COM_API_KEY not set — using mock master events.");
+      let events = getMockMasterEvents();
+      if (data.therapistId && data.therapistId !== "all") {
+        events = events.filter(e => e.therapistId === data.therapistId);
+      }
+      return events;
     }
 
-    return events;
+    try {
+      // Fetch only upcoming bookings within the requested date window
+      const url = new URL(`${CAL_API_URL}/bookings`);
+      url.searchParams.append("status", "upcoming");
+      url.searchParams.append("take", "100");
+      // Use afterStart / beforeEnd date filters supported by Cal.com v2
+      url.searchParams.append("afterStart", data.startDate);
+      url.searchParams.append("beforeEnd", data.endDate);
+
+      console.log("[cal-api] getMasterScheduleEvents fetching:", url.toString());
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "cal-api-version": "2026-05-01",
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[cal-api] getMasterScheduleEvents failed (${response.status}): ${errorText}. Falling back to mock.`);
+        let events = getMockMasterEvents();
+        if (data.therapistId && data.therapistId !== "all") {
+          events = events.filter(e => e.therapistId === data.therapistId);
+        }
+        return events;
+      }
+
+      const json = await response.json();
+      const rawBookings = (json.data || []) as any[];
+
+      console.log(`[cal-api] getMasterScheduleEvents: received ${rawBookings.length} bookings from Cal.com.`);
+
+      // Map Cal.com booking shape → CalendarEvent interface
+      const calEvents: CalendarEvent[] = rawBookings.map((b: any) => {
+        const startTime = b.start || b.startTime;
+        const endTime = b.end || b.endTime;
+        const attendee = b.attendees?.[0];
+        const treatmentType: string = b.eventType?.title || "Initial Assessment — Stride Physiotherapy";
+        // Extract free-text reason from intake responses if present
+        const responses = b.bookingFieldsResponses || b.responses || {};
+        const reasonRaw = responses["Reason-for-visit"];
+        const notes: string | undefined = Array.isArray(reasonRaw)
+          ? reasonRaw.join(", ")
+          : typeof reasonRaw === "string"
+          ? reasonRaw
+          : b.description || undefined;
+
+        return {
+          id: b.uid || b.id?.toString(),
+          title: b.title || treatmentType,
+          start: startTime,
+          end: endTime,
+          type: "booking" as const,
+          // Therapist attribution left blank — single organiser account
+          therapistId: "",
+          therapistName: "",
+          treatmentType,
+          patientName: attendee?.name,
+          patientEmail: attendee?.email,
+          patientPhone: attendee?.phoneNumber || attendee?.phone,
+          status: normalizeBookingStatus(b.status, startTime) as CalendarEvent["status"],
+          notes,
+          syncSource: "cal.com" as const,
+        };
+      });
+
+      // Cal.com returns only bookings; blocked/Google sync slots remain mocked
+      const blockedSlots = getMockMasterEvents().filter(e => e.type === "blocked");
+      const allEvents = [...calEvents, ...blockedSlots];
+
+      if (data.therapistId && data.therapistId !== "all") {
+        return allEvents.filter(e => e.therapistId === data.therapistId);
+      }
+
+      return allEvents;
+    } catch (error) {
+      console.error("[cal-api] getMasterScheduleEvents error — falling back to mock:", error);
+      let events = getMockMasterEvents();
+      if (data.therapistId && data.therapistId !== "all") {
+        events = events.filter(e => e.therapistId === data.therapistId);
+      }
+      return events;
+    }
   });
 
 /**

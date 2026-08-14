@@ -19,6 +19,8 @@ import {
   getCalSlots
 } from "@/lib/cal-api";
 import { CalendarSlideOver } from "./CalendarSlideOver";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { 
   format, 
   addDays, 
@@ -211,7 +213,8 @@ export function CalendarTab() {
     if (evt.type === "blocked") {
       return "border-neutral-700 text-neutral-400";
     }
-    return "border-[color:var(--ember)] bg-[color:var(--ember)]/10 text-white hover:bg-[color:var(--ember)]/20";
+    // Solid opaque background so grid lines don't bleed through the session block
+    return "border-l-2 border-[color:var(--ember)] border-t border-r border-b border-t-[color:var(--ember)]/20 border-r-[color:var(--ember)]/20 border-b-[color:var(--ember)]/20 bg-[#1a0e04] text-white hover:bg-[#231206]";
   };
 
   // Overlap calculation logic for Day/Week absolute columns positioning
@@ -591,6 +594,10 @@ export function CalendarTab() {
                         <div className="flex-1 space-y-1 mt-1 overflow-hidden">
                           {dayEvents.slice(0, 3).map((evt) => {
                             const isBlocked = evt.type === "blocked";
+                            // Build label: HH:mm · treatmentType (no therapist names)
+                            const evtTime = format(new Date(evt.start), "HH:mm");
+                            const typeLabel = evt.treatmentType || evt.title?.split(" - ")[0]?.trim();
+                            const chipLabel = typeLabel ? `${evtTime} · ${typeLabel}` : evtTime;
                             return (
                               <button
                                 key={evt.id}
@@ -606,7 +613,7 @@ export function CalendarTab() {
                                 className={`w-full p-1 border text-left text-[9px] font-mono leading-tight truncate cursor-pointer transition-all ${getEventColorsClass(evt)}`}
                                 title={evt.title}
                               >
-                                {isBlocked ? "Blocked" : evt.patientName || evt.title}
+                                {isBlocked ? "Blocked" : chipLabel}
                               </button>
                             );
                           })}
@@ -721,16 +728,63 @@ export function CalendarTab() {
             </p>
 
             <div className="mt-4 space-y-4">
-              <div>
-                <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] block mb-1.5">New Date</label>
-                <input
-                  type="date"
-                  value={rescheduleDate}
-                  min={format(new Date(), "yyyy-MM-dd")}
-                  onChange={(e) => setRescheduleDate(e.target.value)}
-                  className="w-full bg-black border border-[color:var(--hairline-dark)] text-white text-xs p-2.5 focus:outline-none focus:border-[color:var(--hairline-dark-strong)] font-mono"
-                  style={{ borderRadius: 3 }}
-                />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)] block">New Date</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-between bg-black/45 border border-[color:var(--hairline-dark)] focus:border-[color:var(--ember)] text-white text-xs font-mono p-2.5 outline-none transition-colors text-left"
+                      style={{ borderRadius: 3 }}
+                    >
+                      <span>
+                        {rescheduleDate
+                          ? format(
+                              (() => {
+                                const [y, m, d] = rescheduleDate.split("-").map(Number);
+                                return new Date(y, m - 1, d);
+                              })(),
+                              "PPP"
+                            )
+                          : "SELECT NEW DATE"}
+                      </span>
+                      <CalendarIcon className="h-4 w-4 text-[color:var(--muted-on-dark)]" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-auto p-0 bg-[#101113] border-[#3a3632] text-white [--color-popover:#101113] [--color-popover-foreground:#F5F3EF] [--color-border:#3a3632] [--color-accent:#FF5A36] [--color-accent-foreground:#4A1B0C] [--color-primary:#FF5A36] [--color-primary-foreground:#4A1B0C]"
+                    align="start"
+                  >
+                    <CalendarComponent
+                      mode="single"
+                      selected={
+                        rescheduleDate
+                          ? (() => {
+                              const [y, m, d] = rescheduleDate.split("-").map(Number);
+                              return new Date(y, m - 1, d);
+                            })()
+                          : undefined
+                      }
+                      onSelect={(date) => {
+                        if (date) {
+                          const year = date.getFullYear();
+                          const month = String(date.getMonth() + 1).padStart(2, "0");
+                          const day = String(date.getDate()).padStart(2, "0");
+                          setRescheduleDate(`${year}-${month}-${day}`);
+                        } else {
+                          setRescheduleDate("");
+                        }
+                        setSelectedSlot(null);
+                      }}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                      className="bg-[#101113] text-white border-[#3a3632]"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {rescheduleDate && (
