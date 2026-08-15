@@ -133,6 +133,7 @@ function buildTreatmentData(bookings: CalBooking[]) {
     .slice(0, 5)
     .map(([name, count], i) => ({
       name,
+      count,
       value: Math.round((count / total) * 100),
       color: TREATMENT_COLORS[i % TREATMENT_COLORS.length]
     }));
@@ -226,8 +227,16 @@ export function AdminDashboard({ userEmail }: AdminDashboardProps) {
     };
   }, [bookings]);
 
+  const totalOccurrences = useMemo(() => {
+    let sum = 0;
+    bookings.forEach((b) => {
+      sum += getReasonsForVisit(b).length;
+    });
+    return sum;
+  }, [bookings]);
+
   const activePieLabel = hoveredPieIndex !== null ? treatmentData[hoveredPieIndex]?.name : "Total";
-  const activePieVal = hoveredPieIndex !== null ? `${treatmentData[hoveredPieIndex]?.value}%` : `${treatmentData.reduce((a, d) => a + d.value, 0)}%`;
+  const activePieVal = hoveredPieIndex !== null ? `${treatmentData[hoveredPieIndex]?.value}%` : `${totalOccurrences}`;
 
   type SnapStatus = "Confirmed" | "In Progress" | "Completed" | "Cancelled";
   const getStatusStyle = (status: SnapStatus) => {
@@ -469,7 +478,7 @@ export function AdminDashboard({ userEmail }: AdminDashboardProps) {
                 <span className="w-2 h-2 shrink-0" style={{ backgroundColor: item.color, borderRadius: 1 }} />
                 <div className="truncate">
                   <p className="text-[10px] font-mono uppercase text-white truncate">{item.name}</p>
-                  <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">{item.value}%</p>
+                  <p className="text-[9px] font-mono text-[color:var(--muted-on-dark)]">{item.count} ({item.value}%)</p>
                 </div>
               </div>
             ))}

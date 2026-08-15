@@ -87,6 +87,7 @@ export function BookingsManagement() {
   const [selectedManualSlot, setSelectedManualSlot] = useState<string | null>(null);
   const [loadingManualSlots, setLoadingManualSlots] = useState(false);
   const [manualBookingInProgress, setManualBookingInProgress] = useState(false);
+  const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
 
   // Fetch bookings from Cal.com
   const fetchBookings = async () => {
@@ -245,6 +246,16 @@ export function BookingsManagement() {
     setSelectedManualSlot(null);
   };
 
+  const handleCloseManualBooking = () => {
+    const isDirty = manualName || manualEmail || manualPhone || manualReasonForVisit.length > 0 || manualIssueDuration || manualSeenPhysio || manualInsuranceMethod || manualDate || selectedManualSlot;
+    if (isDirty) {
+      setShowAbandonConfirm(true);
+    } else {
+      setManualBookingOpen(false);
+      resetManualForm();
+    }
+  };
+
   const handleCreateManualBooking = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -281,10 +292,12 @@ export function BookingsManagement() {
           name: manualName,
           email: manualEmail,
           phoneNumber: manualPhone,
-          reasonForVisit: manualReasonForVisit,
-          issueDuration: manualIssueDuration,
-          seenPhysioBefore: manualSeenPhysio,
-          insuranceMethod: manualInsuranceMethod,
+          responses: {
+            "Reason-for-visit": manualReasonForVisit,
+            "How-long-have-you-had-this-issue": manualIssueDuration,
+            "Have-you-seen-a-physiotherapist-for-this-before": manualSeenPhysio,
+            "Insurance-payment-method": manualInsuranceMethod,
+          },
         },
       });
       toast.success("Manual booking scheduled successfully!");
@@ -984,7 +997,14 @@ export function BookingsManagement() {
 
       {/* MODAL 3: Manual / Phone Booking Form — matches real Cal.com intake form */}
       {manualBookingOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto">
+        <div 
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleCloseManualBooking();
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/75 backdrop-blur-sm overflow-y-auto"
+        >
           <div
             className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-xl w-full p-6 space-y-5 my-8"
             style={{ borderRadius: 4 }}
@@ -1003,10 +1023,7 @@ export function BookingsManagement() {
                 </div>
               </div>
               <button
-                onClick={() => {
-                  setManualBookingOpen(false);
-                  resetManualForm();
-                }}
+                onClick={handleCloseManualBooking}
                 className="text-neutral-400 hover:text-white"
               >
                 <X className="h-4 w-4" />
@@ -1288,10 +1305,7 @@ export function BookingsManagement() {
               <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
                 <button
                   type="button"
-                  onClick={() => {
-                    setManualBookingOpen(false);
-                    resetManualForm();
-                  }}
+                  onClick={handleCloseManualBooking}
                   className="px-4 py-2 border border-white/10 hover:border-white/20 text-xs font-mono uppercase text-[color:var(--muted-on-dark)]"
                   style={{ borderRadius: 3 }}
                 >
@@ -1307,6 +1321,42 @@ export function BookingsManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showAbandonConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[color:var(--ink)] border border-[color:var(--hairline-dark)] max-w-sm w-full p-6 space-y-4 shadow-2xl" style={{ borderRadius: 4 }}>
+            <div className="flex items-center gap-2 text-rose-500">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <h4 className="text-sm font-display uppercase tracking-tight text-white">Abandon Booking?</h4>
+            </div>
+            <p className="text-[10px] font-mono text-[color:var(--muted-on-dark)] uppercase tracking-wider leading-relaxed">
+              Are you sure you want to leave this form? Any unsaved details will be lost.
+            </p>
+            <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowAbandonConfirm(false)}
+                className="px-3.5 py-2 border border-white/10 hover:border-white/20 text-[10px] font-mono uppercase text-[color:var(--muted-on-dark)]"
+                style={{ borderRadius: 3 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAbandonConfirm(false);
+                  setManualBookingOpen(false);
+                  resetManualForm();
+                }}
+                className="px-3.5 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:border-rose-500/40 text-[10px] font-mono uppercase"
+                style={{ borderRadius: 3 }}
+              >
+                Abandon
+              </button>
+            </div>
           </div>
         </div>
       )}

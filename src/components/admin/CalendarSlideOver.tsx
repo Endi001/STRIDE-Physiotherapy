@@ -131,14 +131,6 @@ export function CalendarSlideOver({ event, isOpen, onClose, onReschedule, onCanc
                     </p>
                   </div>
                 </div>
-
-                <div className="flex items-start gap-3 sm:col-span-2">
-                  <User className="h-5 w-5 text-[color:var(--slate)] shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-mono text-[color:var(--muted-on-dark)] uppercase">Assigned Physiotherapist</p>
-                    <p className="text-sm font-medium mt-0.5">{event.therapistName}</p>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -216,7 +208,7 @@ export function CalendarSlideOver({ event, isOpen, onClose, onReschedule, onCanc
           </div>
 
           {/* Footer Operations */}
-          {isBooking && event.status !== "cancelled" && event.status !== "Cancelled" && (
+          {isBooking && event.status !== "cancelled" && (
             <div className="p-6 border-t border-[color:var(--hairline-dark)] bg-black/40 grid grid-cols-2 gap-4">
               <button
                 onClick={() => onReschedule(event)}

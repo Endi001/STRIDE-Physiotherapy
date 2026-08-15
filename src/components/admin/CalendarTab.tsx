@@ -430,7 +430,7 @@ export function CalendarTab() {
                             {format(new Date(evt.start), "HH:mm")} - {format(new Date(evt.end), "HH:mm")}
                           </span>
                         </div>
-                        {evt.type !== "blocked" && (
+                        {evt.type !== "blocked" && evt.therapistName && (
                           <span className="text-[9px] font-mono uppercase bg-black/25 px-2 py-0.5 rounded text-white/95 self-start">
                             {evt.therapistName}
                           </span>
@@ -533,7 +533,7 @@ export function CalendarTab() {
                                   {format(new Date(evt.start), "HH:mm")}
                                 </span>
                               </div>
-                              {evt.type !== "blocked" && (
+                              {evt.type !== "blocked" && evt.therapistName && (
                                 <span className="text-[8px] font-mono uppercase bg-black/20 px-1 py-0.5 rounded text-white/80 self-start truncate max-w-full">
                                   {evt.therapistName}
                                 </span>

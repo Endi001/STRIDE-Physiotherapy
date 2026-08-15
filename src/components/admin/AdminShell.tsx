@@ -60,7 +60,7 @@ export function AdminShell({ userEmail, onLogout, children }: AdminShellProps) {
         }`}
       >
         {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-[color:var(--hairline-dark)]">
+        <div className={`flex h-16 items-center justify-between border-b border-[color:var(--hairline-dark)] ${isSidebarOpen ? "px-4" : "px-2"}`}>
           {isSidebarOpen ? (
             <div className="flex items-baseline gap-2">
               <span className="font-display text-xl tracking-tight text-white">STRIDE</span>
@@ -69,7 +69,7 @@ export function AdminShell({ userEmail, onLogout, children }: AdminShellProps) {
               </span>
             </div>
           ) : (
-            <span className="font-display text-lg tracking-tight text-[color:var(--ember)] mx-auto">S</span>
+            <span className="font-display text-[10px] tracking-tight text-white mx-auto uppercase">STRIDE</span>
           )}
           <button
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}

@@ -336,8 +336,10 @@ export function BookingModal() {
                   mode="single"
                   selected={selectedDate}
                   onSelect={(date) => {
-                    setSelectedDate(date);
-                    setSelectedTime(null);
+                    if (date) {
+                      setSelectedDate(date);
+                      setSelectedTime(null);
+                    }
                   }}
                   disabled={(date) => date < startOfDay(new Date())}
                   className="w-full mb-20 md:mb-8 rounded-md max-w-[90%] mx-auto [--cell-size:2rem]"
