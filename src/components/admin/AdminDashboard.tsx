@@ -30,6 +30,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { getCalBookingsList, CalBooking } from "@/lib/cal-api";
+import { getDashboardSettings } from "@/lib/admin.server";
 
 // ── Colour palette for treatment donut ──────────────────────────────────────
 const TREATMENT_COLORS = [
@@ -168,28 +169,31 @@ interface AdminDashboardProps {
 
 export function AdminDashboard({ userEmail }: AdminDashboardProps) {
   const [bookings, setBookings] = useState<CalBooking[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [hoveredPieIndex, setHoveredPieIndex] = useState<number | null>(null);
 
-  const fetchBookings = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const [upcoming, past, cancelled] = await Promise.all([
-        getCalBookingsList({ data: { status: "upcoming" } }),
-        getCalBookingsList({ data: { status: "past" } }),
-        getCalBookingsList({ data: { status: "cancelled" } }),
+      const [allBookings, settingsRes] = await Promise.all([
+        getCalBookingsList({ data: {} }),
+        getDashboardSettings()
       ]);
-      setBookings([...upcoming, ...past, ...cancelled]);
+      setBookings(allBookings);
+      if (settingsRes.settings) {
+        setSettings(settingsRes.settings);
+      }
       setLastFetched(new Date());
     } catch (err) {
-      console.error("[AdminDashboard] Failed to load bookings:", err);
+      console.error("[AdminDashboard] Failed to load data:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchBookings(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const { kpi, growthData, peakHours, treatmentData, todaySnapshot } = useMemo(() => {
     const now = new Date();
@@ -212,10 +216,11 @@ export function AdminDashboard({ userEmail }: AdminDashboardProps) {
     const momGrowth = lastMonthBookings.length > 0
       ? (((thisMonthBookings.length - lastMonthBookings.length) / lastMonthBookings.length) * 100).toFixed(1)
       : null;
-    const AVG_SESSION_RATE = 60;
+    
+    const AVG_SESSION_RATE = parseInt(settings.average_session_rate || "60", 10);
     const monthRevenue = completedCount * AVG_SESSION_RATE;
     const projectedIncome = Math.round((completedCount + upcomingCount) * AVG_SESSION_RATE);
-    const revenueGoal = 10_000;
+    const revenueGoal = parseInt(settings.revenue_goal || "10000", 10);
     const revenueProgress = Math.min(100, Math.round((monthRevenue / revenueGoal) * 100));
 
     return {
@@ -225,7 +230,7 @@ export function AdminDashboard({ userEmail }: AdminDashboardProps) {
       treatmentData: buildTreatmentData(bookings),
       todaySnapshot: buildTodaySnapshot(bookings),
     };
-  }, [bookings]);
+  }, [bookings, settings]);
 
   const totalOccurrences = useMemo(() => {
     let sum = 0;
@@ -318,7 +323,7 @@ export function AdminDashboard({ userEmail }: AdminDashboardProps) {
           </p>
         </div>
         <button
-          onClick={fetchBookings}
+          onClick={fetchData}
           className="flex items-center gap-2 px-3 py-2 border border-white/10 hover:border-white/20 bg-black/20 hover:bg-black/40 text-[10px] font-mono uppercase tracking-wider text-[color:var(--muted-on-dark)] hover:text-white transition-colors"
           style={{ borderRadius: 3 }}
         >

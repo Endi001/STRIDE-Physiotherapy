@@ -68,18 +68,35 @@ export function CalendarTab() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [reschedulingInProgress, setReschedulingInProgress] = useState(false);
 
-  // Fetch all calendar data
+  // Fetch calendar data scoped to the currently visible date range.
+  // Day view queries only the active day; Week view queries the active week;
+  // Month view queries the full visible grid (including leading/trailing days).
   const fetchData = async () => {
     setLoading(true);
     try {
-      const start = startOfMonth(currentDate).toISOString();
-      const end = endOfMonth(currentDate).toISOString();
-      
+      let start: string;
+      let end: string;
+
+      if (viewMode === "day") {
+        const dayStart = new Date(currentDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(currentDate);
+        dayEnd.setHours(23, 59, 59, 999);
+        start = dayStart.toISOString();
+        end = dayEnd.toISOString();
+      } else if (viewMode === "week") {
+        start = startOfWeek(currentDate, { weekStartsOn: 1 }).toISOString();
+        end = endOfWeek(currentDate, { weekStartsOn: 1 }).toISOString();
+      } else {
+        // Month view: include leading/trailing days visible in the grid
+        const monthStart = startOfMonth(currentDate);
+        const monthEnd = endOfMonth(currentDate);
+        start = startOfWeek(monthStart, { weekStartsOn: 1 }).toISOString();
+        end = endOfWeek(monthEnd, { weekStartsOn: 1 }).toISOString();
+      }
+
       const fetchedEvents = await getMasterScheduleEvents({
-        data: {
-          startDate: start,
-          endDate: end,
-        }
+        data: { startDate: start, endDate: end }
       });
 
       setEvents(fetchedEvents);
@@ -91,12 +108,13 @@ export function CalendarTab() {
     }
   };
 
-  // Only show real Cal.com bookings — filter out Google Sync blocked slots
-  const calBookings = events.filter(e => e.type === "booking" || e.syncSource === "cal.com");
+  // Only show real Cal.com bookings — no mock/blocked slots
+  const calBookings = events.filter(e => e.type === "booking");
 
   useEffect(() => {
     fetchData();
-  }, [currentDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDate, viewMode]);
 
   // Navigations
   const handlePrev = () => {
